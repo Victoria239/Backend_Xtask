@@ -1,168 +1,96 @@
-"""Employees service - API routes.
-
-Handles multiple frontend endpoint patterns:
-- /api/empleados-nomina/*
-- /api/empleados-nuevos/*
-- /api/finanzas/nomina/empleados/*
-"""
+"""Employees service - API routes."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
 from shared.dependencies import get_current_user_id
+from services.employees.repository import EmployeeRepository
+from services.employees.service import EmployeeService
+from services.employees.schemas import (
+    EmployeeCreate,
+    EmployeeUpdate,
+    EmployeeOut,
+    EmployeeProjectAssign,
+)
 
 router = APIRouter()
 
 
-# ─── /api/empleados-nomina ───────────────────────────────────
-
-@router.get("/api/empleados-nomina")
-async def list_empleados_nomina(
-    proyectoId: int | None = Query(None),
-    q: str | None = Query(None),
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return []
+def get_service(db: AsyncSession = Depends(get_db)) -> EmployeeService:
+    return EmployeeService(EmployeeRepository(db))
 
 
-@router.post("/api/empleados-nomina")
-async def create_empleado_nomina(
-    data: dict,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return {"id": 0, "message": "Not implemented yet"}
-
-
-@router.post("/api/empleados-nomina/{empleado_id}/contrato")
-async def upload_contrato(
-    empleado_id: int,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement file upload in feature/employees-service
-    return {"message": "Not implemented yet"}
-
-
-# ─── /api/empleados-nuevos ───────────────────────────────────
-
-@router.get("/api/empleados-nuevos/{empleado_id}")
-async def get_empleado(
-    empleado_id: int,
-    include: str | None = Query(None),
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return {"id": empleado_id}
-
-
-@router.put("/api/empleados-nuevos/{empleado_id}")
-async def update_empleado(
-    empleado_id: int,
-    data: dict,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return {"id": empleado_id}
-
-
-@router.put("/api/empleados-nuevos/{empleado_id}/proyectos")
-async def update_empleado_proyectos(
-    empleado_id: int,
-    data: dict,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return {"success": True}
-
-
-@router.delete("/api/empleados-nuevos/{empleado_id}")
-async def delete_empleado(
-    empleado_id: int,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return {"success": True, "message": "Not implemented yet"}
-
-
-@router.get("/api/empleados-nuevos/{empleado_id}/historial-nomina")
-async def get_historial_nomina(
-    empleado_id: int,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return []
-
-
-@router.patch("/api/empleados-nuevos/{empleado_id}/historial-nomina/{nomina_id}/estado")
-async def update_estado_nomina(
-    empleado_id: int,
-    nomina_id: int,
-    data: dict,
-    user_id: int = Depends(get_current_user_id),
-):
-    # TODO: Implement in feature/employees-service
-    return {"success": True}
-
-
-# ─── /api/finanzas/nomina/empleados ──────────────────────────
-
-@router.get("/api/finanzas/nomina/empleados")
-async def list_empleados_finanzas(
-    page: int = Query(1),
-    pageSize: int = Query(10),
-    contractStatus: str | None = Query(None),
+@router.get("", response_model=list[EmployeeOut])
+async def list_employees(
     department: str | None = Query(None),
+    contract_status: str | None = Query(None),
     search: str | None = Query(None),
+    service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/employees-service
-    return {"data": [], "pagination": {"page": page, "pageSize": pageSize, "totalItems": 0, "totalPages": 0}}
+    filters = {}
+    if department:
+        filters["department"] = department
+    if contract_status:
+        filters["contract_status"] = contract_status
+    if search:
+        filters["search"] = search
+    return await service.list_employees(filters if filters else None)
 
 
-@router.get("/api/finanzas/nomina/empleados/{empleado_id}")
-async def get_empleado_finanzas(
-    empleado_id: int,
+@router.get("/{employee_id}", response_model=EmployeeOut)
+async def get_employee(
+    employee_id: int,
+    service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/employees-service
-    return {"id": empleado_id}
+    return await service.get_employee(employee_id)
 
 
-@router.post("/api/finanzas/nomina/empleados")
-async def create_empleado_finanzas(
-    data: dict,
+@router.post("", response_model=EmployeeOut)
+async def create_employee(
+    data: EmployeeCreate,
+    service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/employees-service
-    return {"id": 0}
+    return await service.create_employee(data)
 
 
-@router.patch("/api/finanzas/nomina/empleados/{empleado_id}")
-async def update_empleado_finanzas(
-    empleado_id: int,
-    data: dict,
+@router.patch("/{employee_id}", response_model=EmployeeOut)
+async def update_employee(
+    employee_id: int,
+    data: EmployeeUpdate,
+    service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/employees-service
-    return {"id": empleado_id}
+    return await service.update_employee(employee_id, data)
 
 
-@router.patch("/api/finanzas/nomina/empleados/{empleado_id}/estado")
-async def change_estado_empleado(
-    empleado_id: int,
-    data: dict,
+@router.delete("/{employee_id}", status_code=204)
+async def delete_employee(
+    employee_id: int,
+    service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/employees-service
-    return {"id": empleado_id}
+    await service.delete_employee(employee_id)
 
 
-@router.delete("/api/finanzas/nomina/empleados/{empleado_id}")
-async def delete_empleado_finanzas(
-    empleado_id: int,
+@router.put("/{employee_id}/proyectos")
+async def assign_projects(
+    employee_id: int,
+    data: EmployeeProjectAssign,
+    service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/employees-service
-    return {"message": "Not implemented yet", "empleado": {"id": empleado_id}}
+    return await service.assign_projects(employee_id, data.project_ids)
+
+
+@router.get("/{employee_id}/proyectos")
+async def get_employee_projects(
+    employee_id: int,
+    service: EmployeeService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    project_ids = await service.get_project_ids(employee_id)
+    return {"employee_id": employee_id, "project_ids": project_ids}
