@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL Database ───────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: xtask-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-xtask}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-xtask_dev_2024}
+      POSTGRES_DB: ${DB_NAME:-xtask_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-xtask}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis (sessions, cache, message broker) ──────────────
+  redis:
+    image: redis:7-alpine
+    container_name: xtask-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── API Gateway ──────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: xtask-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-xtask}:${DB_PASSWORD:-xtask_dev_2024}@postgres:5432/${DB_NAME:-xtask_db}
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
