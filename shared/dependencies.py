@@ -30,8 +30,8 @@ async def get_current_user_id(
         if user_id is None:
             raise UnauthorizedException("Invalid token payload")
         return int(user_id)
-    except JWTError:
-        raise UnauthorizedException("Invalid or expired token")
+    except JWTError as e:
+        raise UnauthorizedException(f"Invalid or expired token: {str(e)}")
 
 
 async def get_optional_user_id(
