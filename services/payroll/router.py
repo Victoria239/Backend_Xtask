@@ -1,209 +1,93 @@
-"""Payroll service - API routes.
-
-Handles multiple frontend endpoint patterns:
-- /api/nominas/*
-- /api/nominas-preview/*
-- /api/nomina/*
-- /api/finanzas/nomina/*
-- /api/finances/payrolls/*
-"""
+"""Payroll service - API routes."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
 from shared.dependencies import get_current_user_id
+from services.payroll.repository import PayrollRepository
+from services.payroll.service import PayrollService
+from services.payroll.schemas import (
+    PayrollCreate, PayrollUpdate, PayrollOut, PayrollStatusUpdate,
+)
 
 router = APIRouter()
 
 
-# ═══════════════════════════════════════════════════════════════
-# /api/finances/payrolls
-# ═══════════════════════════════════════════════════════════════
-
-@router.get("/api/finances/payrolls")
-async def list_payrolls(user_id: int = Depends(get_current_user_id)):
-    return []
+def get_service(db: AsyncSession = Depends(get_db)) -> PayrollService:
+    return PayrollService(PayrollRepository(db))
 
 
-@router.get("/api/finances/payrolls/{payroll_id}")
-async def get_payroll(payroll_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": payroll_id}
-
-
-@router.post("/api/finances/payrolls")
-async def create_payroll(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
-
-
-@router.patch("/api/finances/payrolls/{payroll_id}")
-async def update_payroll(payroll_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": payroll_id}
-
-
-@router.patch("/api/finances/payrolls/{payroll_id}/status")
-async def update_payroll_status(payroll_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": payroll_id}
-
-
-@router.post("/api/finances/payrolls/{payroll_id}/payment")
-async def record_payroll_payment(payroll_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-@router.post("/api/finances/payrolls/calculate")
-async def calculate_salary(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.get("/api/finances/payrolls/{payroll_id}/pdf")
-async def get_payroll_pdf(payroll_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"url": ""}
-
-
-@router.post("/api/finances/payrolls/generate-batch")
-async def generate_batch_payroll(data: dict, user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-# ═══════════════════════════════════════════════════════════════
-# /api/nomina
-# ═══════════════════════════════════════════════════════════════
-
-@router.get("/api/nomina/proyectos")
-async def get_nomina_proyectos(user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/api/nomina/metricas")
-async def get_nomina_metricas(
-    proyectoId: int | None = Query(None),
+@router.get("", response_model=list[PayrollOut])
+async def list_payrolls(
+    employee_id: int | None = Query(None),
+    period: str | None = Query(None),
+    status: str | None = Query(None),
+    service: PayrollService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return {"totalMensual": 0, "pendientePago": 0, "pagadoMes": 0, "recursosActivos": 0}
+    filters = {}
+    if employee_id:
+        filters["employee_id"] = employee_id
+    if period:
+        filters["period"] = period
+    if status:
+        filters["status"] = status
+    return await service.list_payrolls(filters if filters else None)
 
 
-@router.get("/api/nomina/recurso/{recurso_id}/historial")
-async def get_recurso_historial(recurso_id: int, user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/api/nomina/{proyecto_id}")
-async def get_nomina_proyecto(
-    proyecto_id: int,
-    mes: str | None = Query(None),
-    estado: str | None = Query(None),
-    perfil: str | None = Query(None),
+@router.get("/metricas")
+async def get_metrics(
+    period: str | None = Query(None),
+    service: PayrollService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return []
+    filters = {"period": period} if period else None
+    return await service.get_metrics(filters)
 
 
-@router.get("/api/nomina/{proyecto_id}/resumen")
-async def get_nomina_resumen(
-    proyecto_id: int,
-    mes: str | None = Query(None),
+@router.get("/{payroll_id}", response_model=PayrollOut)
+async def get_payroll(
+    payroll_id: int,
+    service: PayrollService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return {}
+    return await service.get_payroll(payroll_id)
 
 
-@router.post("/api/nomina/{proyecto_id}/pagar")
-async def registrar_pago_nomina(proyecto_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
-
-
-@router.patch("/api/nomina/{nomina_id}/estado")
-async def update_nomina_estado(nomina_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": nomina_id}
-
-
-# ═══════════════════════════════════════════════════════════════
-# /api/finanzas/nomina
-# ═══════════════════════════════════════════════════════════════
-
-@router.get("/api/finanzas/nomina")
-async def list_nominas_finanzas(
-    empleadoId: int | None = Query(None),
-    empleadoNombre: str | None = Query(None),
-    mes: int | None = Query(None),
-    anio: int | None = Query(None),
-    estado: str | None = Query(None),
-    periodo: str | None = Query(None),
-    page: int = Query(1),
-    pageSize: int = Query(10),
+@router.post("", response_model=PayrollOut)
+async def create_payroll(
+    data: PayrollCreate,
+    service: PayrollService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return {
-        "nominas": [],
-        "pagination": {"page": page, "pageSize": pageSize, "totalItems": 0, "totalPages": 0},
-    }
+    return await service.create_payroll(data)
 
 
-@router.get("/api/finanzas/nomina/{nomina_id}")
-async def get_nomina_finanzas(nomina_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": nomina_id}
-
-
-@router.post("/api/finanzas/nomina/cambiar-estado/{nomina_id}")
-async def cambiar_estado_nomina(nomina_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-@router.post("/api/finanzas/nomina/marcar-pagado/{nomina_id}")
-async def marcar_pagado(nomina_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-@router.get("/api/finanzas/nomina/{nomina_id}/desprendible")
-async def get_desprendible(nomina_id: int, user_id: int = Depends(get_current_user_id)):
-    # TODO: Return PDF blob
-    return {"url": ""}
-
-
-@router.post("/api/finanzas/nomina/{nomina_id}/enviar-email")
-async def enviar_nomina_email(nomina_id: int, data: dict | None = None, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-# ═══════════════════════════════════════════════════════════════
-# /api/nominas + /api/nominas-preview
-# ═══════════════════════════════════════════════════════════════
-
-@router.post("/api/nominas-preview/preview")
-async def preview_nomina(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"items": [], "totales": {"total_sueldos": 0, "total_bonos": 0, "total_deducciones": 0, "total_neto": 0}}
-
-
-@router.get("/api/nominas-preview/{nomina_id}/export")
-async def export_nomina(
-    nomina_id: int,
-    format: str = Query("pdf"),
+@router.patch("/{payroll_id}", response_model=PayrollOut)
+async def update_payroll(
+    payroll_id: int,
+    data: PayrollUpdate,
+    service: PayrollService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Return file blob
-    return {"url": ""}
+    return await service.update_payroll(payroll_id, data)
 
 
-@router.post("/api/nominas")
-async def create_nomina(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
+@router.patch("/{payroll_id}/estado", response_model=PayrollOut)
+async def change_payroll_status(
+    payroll_id: int,
+    data: PayrollStatusUpdate,
+    service: PayrollService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.change_status(payroll_id, data.status)
 
 
-@router.get("/api/nominas/{nomina_id}")
-async def get_nomina_detail(nomina_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": nomina_id}
-
-
-@router.post("/api/nominas/{nomina_id}/procesar")
-async def procesar_nomina(nomina_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": nomina_id}
-
-
-@router.patch("/api/nominas/{nomina_id}/estado")
-async def update_nomina_estado_v2(nomina_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": nomina_id}
-
-
-@router.delete("/api/nominas/{nomina_id}")
-async def delete_nomina(nomina_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"success": True, "message": "Nómina eliminada correctamente"}
+@router.delete("/{payroll_id}", status_code=204)
+async def delete_payroll(
+    payroll_id: int,
+    service: PayrollService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    await service.delete_payroll(payroll_id)
