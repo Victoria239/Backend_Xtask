@@ -1,303 +1,167 @@
-"""Finance service - API routes.
-
-Handles multiple frontend endpoint patterns:
-- /api/finances/budgets/*
-- /api/presupuestos/*
-- /api/finances/invoices/*
-- /api/facturacion/*
-- /api/finanzas/recursos/*
-- /api/finances/reports/*
-- /api/finances/audits/*
-"""
+"""Finance service - API routes."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
 from shared.dependencies import get_current_user_id
+from services.finance.repository import BudgetRepository, InvoiceRepository
+from services.finance.service import BudgetService, InvoiceService
+from services.finance.schemas import (
+    BudgetCreate, BudgetUpdate, BudgetOut, ExpenseRegister,
+    InvoiceCreate, InvoiceUpdate, InvoiceOut, InvoiceStatusUpdate,
+)
 
 router = APIRouter()
+
+
+def get_budget_service(db: AsyncSession = Depends(get_db)) -> BudgetService:
+    return BudgetService(BudgetRepository(db))
+
+
+def get_invoice_service(db: AsyncSession = Depends(get_db)) -> InvoiceService:
+    return InvoiceService(InvoiceRepository(db))
 
 
 # ═══════════════════════════════════════════════════════════════
 # PRESUPUESTOS / BUDGETS
 # ═══════════════════════════════════════════════════════════════
 
-@router.get("/api/finances/budgets")
-async def list_budgets(user_id: int = Depends(get_current_user_id)):
-    # TODO: Implement in feature/finance-service
-    return []
-
-
-@router.get("/api/finances/budgets/{budget_id}")
-async def get_budget(budget_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": budget_id}
-
-
-@router.post("/api/finances/budgets")
-async def create_budget(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
-
-
-@router.patch("/api/finances/budgets/{budget_id}")
-async def update_budget(budget_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": budget_id}
-
-
-@router.delete("/api/finances/budgets/{budget_id}")
-async def delete_budget(budget_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": budget_id}
-
-
-@router.get("/api/finances/budgets/{budget_id}/execution")
-async def get_budget_execution(budget_id: int, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.post("/api/finances/budgets/{budget_id}/validate-expense")
-async def validate_expense(budget_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"valid": True}
-
-
-# ─── /api/presupuestos ───────────────────────────────────────
-
-@router.get("/api/presupuestos")
-async def list_presupuestos(
-    organizationId: int | None = Query(None),
+@router.get("/presupuestos", response_model=list[BudgetOut])
+async def list_budgets(
+    status: str | None = Query(None),
+    project_id: int | None = Query(None),
+    service: BudgetService = Depends(get_budget_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return []
+    filters = {}
+    if status:
+        filters["status"] = status
+    if project_id:
+        filters["project_id"] = project_id
+    return await service.list_budgets(filters if filters else None)
 
 
-@router.get("/api/presupuestos/{presupuesto_id}")
-async def get_presupuesto(presupuesto_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": presupuesto_id}
-
-
-@router.post("/api/presupuestos")
-async def create_presupuesto(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
-
-
-@router.patch("/api/presupuestos/{presupuesto_id}")
-async def update_presupuesto(presupuesto_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": presupuesto_id}
-
-
-@router.post("/api/presupuestos/{presupuesto_id}/gastos")
-async def registrar_gasto(presupuesto_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": presupuesto_id}
-
-
-@router.post("/api/presupuestos/importar")
-async def importar_presupuestos(data: dict, user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-# ═══════════════════════════════════════════════════════════════
-# FACTURACIÓN / INVOICES
-# ═══════════════════════════════════════════════════════════════
-
-@router.get("/api/finances/invoices")
-async def list_invoices(user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/api/finances/invoices/overdue")
-async def get_overdue_invoices(
-    daysThreshold: int = Query(7),
+@router.get("/presupuestos/{budget_id}", response_model=BudgetOut)
+async def get_budget(
+    budget_id: int,
+    service: BudgetService = Depends(get_budget_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return []
+    return await service.get_budget(budget_id)
 
 
-@router.get("/api/finances/invoices/{invoice_id}")
-async def get_invoice(invoice_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": invoice_id}
-
-
-@router.post("/api/finances/invoices")
-async def create_invoice(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
-
-
-@router.patch("/api/finances/invoices/{invoice_id}")
-async def update_invoice(invoice_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": invoice_id}
-
-
-@router.patch("/api/finances/invoices/{invoice_id}/status")
-async def update_invoice_status(invoice_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": invoice_id}
-
-
-@router.post("/api/finances/invoices/{invoice_id}/payment")
-async def record_invoice_payment(invoice_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-@router.get("/api/finances/invoices/{invoice_id}/items")
-async def get_invoice_items(invoice_id: int, user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/api/finances/invoices/{invoice_id}/pdf")
-async def get_invoice_pdf(invoice_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"url": ""}
-
-
-@router.post("/api/finances/invoices/{invoice_id}/send-email")
-async def send_invoice_email(invoice_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-# ─── /api/facturacion ────────────────────────────────────────
-
-@router.get("/api/facturacion/{proyecto_id}")
-async def list_facturas_proyecto(
-    proyecto_id: int,
-    estado: str | None = Query(None),
-    cliente: str | None = Query(None),
-    fechaDesde: str | None = Query(None),
-    fechaHasta: str | None = Query(None),
-    busqueda: str | None = Query(None),
+@router.post("/presupuestos", response_model=BudgetOut)
+async def create_budget(
+    data: BudgetCreate,
+    service: BudgetService = Depends(get_budget_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return []
+    return await service.create_budget(data)
 
 
-@router.get("/api/facturacion/{proyecto_id}/indicadores")
-async def get_indicadores_facturacion(proyecto_id: int, user_id: int = Depends(get_current_user_id)):
-    return {}
+@router.patch("/presupuestos/{budget_id}", response_model=BudgetOut)
+async def update_budget(
+    budget_id: int,
+    data: BudgetUpdate,
+    service: BudgetService = Depends(get_budget_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.update_budget(budget_id, data)
 
 
-@router.get("/api/facturacion/detalle/{factura_id}")
-async def get_factura_detalle(factura_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": factura_id}
+@router.delete("/presupuestos/{budget_id}", status_code=204)
+async def delete_budget(
+    budget_id: int,
+    service: BudgetService = Depends(get_budget_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    await service.delete_budget(budget_id)
 
 
-@router.post("/api/facturacion")
-async def registrar_factura(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
+@router.get("/presupuestos/{budget_id}/ejecucion")
+async def get_budget_execution(
+    budget_id: int,
+    service: BudgetService = Depends(get_budget_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.get_execution(budget_id)
 
 
-@router.patch("/api/facturacion/{factura_id}/estado")
-async def update_factura_estado(factura_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": factura_id}
-
-
-@router.delete("/api/facturacion/{factura_id}")
-async def delete_factura(factura_id: int, user_id: int = Depends(get_current_user_id)):
-    return None
-
-
-# ═══════════════════════════════════════════════════════════════
-# RECURSOS FINANCIEROS
-# ═══════════════════════════════════════════════════════════════
-
-@router.get("/api/finanzas/recursos/{presupuesto_id}")
-async def list_recursos(presupuesto_id: int, user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/api/finanzas/recursos/{presupuesto_id}/resumen")
-async def get_resumen_costos(presupuesto_id: int, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.post("/api/finanzas/recursos")
-async def create_recurso(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
-
-
-@router.patch("/api/finanzas/recursos/{recurso_id}")
-async def update_recurso(recurso_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": recurso_id}
-
-
-@router.delete("/api/finanzas/recursos/{recurso_id}")
-async def delete_recurso(recurso_id: int, user_id: int = Depends(get_current_user_id)):
-    return None
+@router.post("/presupuestos/{budget_id}/gastos", response_model=BudgetOut)
+async def register_expense(
+    budget_id: int,
+    data: ExpenseRegister,
+    service: BudgetService = Depends(get_budget_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.register_expense(budget_id, data)
 
 
 # ═══════════════════════════════════════════════════════════════
-# INFORMES FINANCIEROS / REPORTS
+# FACTURAS / INVOICES
 # ═══════════════════════════════════════════════════════════════
 
-@router.get("/api/finances/reports")
-async def list_reports(user_id: int = Depends(get_current_user_id)):
-    return []
+@router.get("/facturas", response_model=list[InvoiceOut])
+async def list_invoices(
+    status: str | None = Query(None),
+    project_id: int | None = Query(None),
+    client: str | None = Query(None),
+    service: InvoiceService = Depends(get_invoice_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    filters = {}
+    if status:
+        filters["status"] = status
+    if project_id:
+        filters["project_id"] = project_id
+    if client:
+        filters["client"] = client
+    return await service.list_invoices(filters if filters else None)
 
 
-@router.get("/api/finances/reports/{report_id}")
-async def get_report(report_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": report_id}
+@router.get("/facturas/{invoice_id}", response_model=InvoiceOut)
+async def get_invoice(
+    invoice_id: int,
+    service: InvoiceService = Depends(get_invoice_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.get_invoice(invoice_id)
 
 
-@router.post("/api/finances/reports")
-async def create_report(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
+@router.post("/facturas", response_model=InvoiceOut)
+async def create_invoice(
+    data: InvoiceCreate,
+    service: InvoiceService = Depends(get_invoice_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.create_invoice(data)
 
 
-@router.patch("/api/finances/reports/{report_id}")
-async def update_report(report_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": report_id}
+@router.patch("/facturas/{invoice_id}", response_model=InvoiceOut)
+async def update_invoice(
+    invoice_id: int,
+    data: InvoiceUpdate,
+    service: InvoiceService = Depends(get_invoice_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.update_invoice(invoice_id, data)
 
 
-@router.post("/api/finances/reports/balance-sheet")
-async def generate_balance_sheet(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
+@router.patch("/facturas/{invoice_id}/estado", response_model=InvoiceOut)
+async def update_invoice_status(
+    invoice_id: int,
+    data: InvoiceStatusUpdate,
+    service: InvoiceService = Depends(get_invoice_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.update_status(invoice_id, data.status)
 
 
-@router.post("/api/finances/reports/income-statement")
-async def generate_income_statement(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.post("/api/finances/reports/cash-flow")
-async def generate_cash_flow(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.get("/api/finances/reports/{report_id}/pdf")
-async def get_report_pdf(report_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"url": ""}
-
-
-@router.get("/api/finances/reports/{report_id}/excel")
-async def get_report_excel(report_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"url": ""}
-
-
-# ═══════════════════════════════════════════════════════════════
-# AUDITORÍA FINANCIERA
-# ═══════════════════════════════════════════════════════════════
-
-@router.get("/api/finances/audits")
-async def list_audits(user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/api/finances/audits/{audit_id}")
-async def get_audit(audit_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": audit_id}
-
-
-@router.get("/api/finances/audits/history/{entity_type}/{entity_id}")
-async def get_entity_history(entity_type: str, entity_id: int, user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.post("/api/finances/audits/detect-irregularities")
-async def detect_irregularities(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.get("/api/finances/audits/verify-compliance/transaction/{transaction_id}")
-async def verify_compliance(transaction_id: int, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.post("/api/finances/audits/report")
-async def generate_audit_report(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
+@router.delete("/facturas/{invoice_id}", status_code=204)
+async def delete_invoice(
+    invoice_id: int,
+    service: InvoiceService = Depends(get_invoice_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    await service.delete_invoice(invoice_id)

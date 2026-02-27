@@ -68,7 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
     app.include_router(projects_router, prefix="/api/proyectos", tags=["Projects"])
     app.include_router(employees_router, prefix="/api/empleados", tags=["Employees"])
-    app.include_router(finance_router, tags=["Finance"])
+    app.include_router(finance_router, prefix="/api/finanzas", tags=["Finance"])
     app.include_router(payroll_router, tags=["Payroll"])
     app.include_router(kpis_router, prefix="/api/kpis", tags=["KPIs"])
     app.include_router(skills_router, prefix="/api/habilidades", tags=["Skills"])
