@@ -36,5 +36,5 @@ async def get_db() -> AsyncSession:
 
 async def init_db() -> None:
     """Create all tables. Used for development only."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Tables already created manually, skip auto-creation
+    pass

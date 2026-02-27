@@ -2,8 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from shared.config import get_settings
 from shared.exceptions import ConflictException, UnauthorizedException
@@ -11,7 +11,13 @@ from services.auth.models import User
 from services.auth.repository import UserRepository
 from services.auth.schemas import LoginRequest, RegisterRequest, UserOut, LoginResponse
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
 
 class AuthService:
@@ -21,7 +27,7 @@ class AuthService:
 
     async def login(self, data: LoginRequest) -> LoginResponse:
         user = await self.repo.get_by_identifier(data.identifier)
-        if not user or not pwd_context.verify(data.password, user.password):
+        if not user or not verify_password(data.password, user.password):
             raise UnauthorizedException("Invalid credentials")
 
         token = self._create_token(user)
@@ -36,7 +42,7 @@ class AuthService:
         if existing:
             raise ConflictException(f"Email '{data.email}' already registered")
 
-        hashed_password = pwd_context.hash(data.password)
+        hashed_password = hash_password(data.password)
         user = await self.repo.create({
             "username": data.username,
             "email": data.email,
