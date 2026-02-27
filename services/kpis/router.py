@@ -1,93 +1,93 @@
-"""KPIs service - API routes.
-
-Handles: /api/kpis/*
-"""
+"""KPIs service - API routes."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
 from shared.dependencies import get_current_user_id
+from services.kpis.repository import KpiRepository
+from services.kpis.service import KpiService
+from services.kpis.schemas import (
+    KpiCreate, KpiUpdate, KpiOut, KpiResultUpdate, KpiValidate,
+)
 
 router = APIRouter()
 
 
-@router.get("/mis-kpis")
-async def get_mis_kpis(
-    mes: str | None = Query(None),
+def get_service(db: AsyncSession = Depends(get_db)) -> KpiService:
+    return KpiService(KpiRepository(db))
+
+
+@router.get("", response_model=list[KpiOut])
+async def list_kpis(
+    employee_id: int | None = Query(None),
+    period: str | None = Query(None),
+    status: str | None = Query(None),
+    service: KpiService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    # TODO: Implement in feature/kpis-service
-    return []
+    filters = {}
+    if employee_id:
+        filters["employee_id"] = employee_id
+    if period:
+        filters["period"] = period
+    if status:
+        filters["status"] = status
+    return await service.list_kpis(filters if filters else None)
 
 
-@router.get("/empleados")
-async def get_empleados_kpis(user_id: int = Depends(get_current_user_id)):
-    return []
-
-
-@router.get("/empleado-por-userid/{target_user_id}")
-async def get_empleado_by_userid(target_user_id: int, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.get("/bonificacion")
-async def get_bonificacion(
-    id: int | None = Query(None),
-    mes: str | None = Query(None),
+@router.get("/{kpi_id}", response_model=KpiOut)
+async def get_kpi(
+    kpi_id: int,
+    service: KpiService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return {}
+    return await service.get_kpi(kpi_id)
 
 
-@router.get("/bonificaciones/historial")
-async def get_bonificaciones_historial(
-    limit: int | None = Query(None),
+@router.post("", response_model=KpiOut)
+async def create_kpi(
+    data: KpiCreate,
+    service: KpiService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
-    return []
+    return await service.create_kpi(data)
 
 
-@router.get("/{kpi_id}")
-async def get_kpi(kpi_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": kpi_id}
+@router.patch("/{kpi_id}", response_model=KpiOut)
+async def update_kpi(
+    kpi_id: int,
+    data: KpiUpdate,
+    service: KpiService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.update_kpi(kpi_id, data)
 
 
-@router.post("")
-async def create_kpi(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": 0}
+@router.patch("/{kpi_id}/resultado", response_model=KpiOut)
+async def evaluate_kpi(
+    kpi_id: int,
+    data: KpiResultUpdate,
+    service: KpiService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.evaluate_kpi(kpi_id, data.actual_value)
 
 
-@router.patch("/{kpi_id}")
-async def update_kpi(kpi_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": kpi_id}
+@router.patch("/{kpi_id}/validar", response_model=KpiOut)
+async def validate_kpi(
+    kpi_id: int,
+    data: KpiValidate,
+    service: KpiService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.validate_kpi(kpi_id, data.validated)
 
 
-@router.delete("/{kpi_id}")
-async def delete_kpi(kpi_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"success": True}
-
-
-@router.patch("/{kpi_id}/resultado")
-async def evaluar_kpi(kpi_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": kpi_id}
-
-
-@router.patch("/{kpi_id}/validar")
-async def validar_kpi(kpi_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": kpi_id}
-
-
-@router.post("/calcular-bonificacion")
-async def calcular_bonificacion(data: dict, user_id: int = Depends(get_current_user_id)):
-    return {}
-
-
-@router.patch("/bonificacion/{bonificacion_id}/aprobar")
-async def aprobar_bonificacion(bonificacion_id: int, data: dict, user_id: int = Depends(get_current_user_id)):
-    return {"id": bonificacion_id}
-
-
-@router.patch("/bonificacion/{bonificacion_id}/marcar-pagada")
-async def marcar_pagada(bonificacion_id: int, user_id: int = Depends(get_current_user_id)):
-    return {"id": bonificacion_id}
+@router.delete("/{kpi_id}", status_code=204)
+async def delete_kpi(
+    kpi_id: int,
+    service: KpiService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    await service.delete_kpi(kpi_id)
