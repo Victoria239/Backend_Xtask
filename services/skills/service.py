@@ -1,6 +1,7 @@
 """Skills service - Business logic."""
 
 from shared.exceptions import NotFoundException
+from shared.schemas import PaginatedResponse
 from services.skills.repository import SkillRepository
 from services.skills.schemas import SkillCreate, SkillUpdate, SkillOut
 
@@ -12,6 +13,15 @@ class SkillService:
     async def list_skills(self, filters: dict | None = None) -> list[SkillOut]:
         skills = await self.repo.get_all(filters)
         return [SkillOut.model_validate(s) for s in skills]
+
+    async def list_skills_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[SkillOut.model_validate(s) for s in items],
+            total=total, page=page, page_size=page_size,
+        )
 
     async def get_skill(self, skill_id: int) -> SkillOut:
         skill = await self.repo.get_by_id(skill_id)

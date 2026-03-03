@@ -1,6 +1,7 @@
 """Finance service - Business logic."""
 
 from shared.exceptions import NotFoundException
+from shared.schemas import PaginatedResponse
 from services.finance.repository import BudgetRepository, InvoiceRepository
 from services.finance.schemas import (
     BudgetCreate, BudgetUpdate, BudgetOut, ExpenseRegister,
@@ -15,6 +16,15 @@ class BudgetService:
     async def list_budgets(self, filters: dict | None = None) -> list[BudgetOut]:
         budgets = await self.repo.get_all(filters)
         return [BudgetOut.model_validate(b) for b in budgets]
+
+    async def list_budgets_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[BudgetOut.model_validate(b) for b in items],
+            total=total, page=page, page_size=page_size,
+        )
 
     async def get_budget(self, budget_id: int) -> BudgetOut:
         budget = await self.repo.get_by_id(budget_id)
@@ -67,6 +77,15 @@ class InvoiceService:
     async def list_invoices(self, filters: dict | None = None) -> list[InvoiceOut]:
         invoices = await self.repo.get_all(filters)
         return [InvoiceOut.model_validate(i) for i in invoices]
+
+    async def list_invoices_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[InvoiceOut.model_validate(i) for i in items],
+            total=total, page=page, page_size=page_size,
+        )
 
     async def get_invoice(self, invoice_id: int) -> InvoiceOut:
         invoice = await self.repo.get_by_id(invoice_id)

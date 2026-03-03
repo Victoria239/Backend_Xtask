@@ -1,6 +1,7 @@
 """Employees service - Business logic."""
 
 from shared.exceptions import NotFoundException
+from shared.schemas import PaginatedResponse
 from services.employees.repository import EmployeeRepository
 from services.employees.schemas import EmployeeCreate, EmployeeUpdate, EmployeeOut
 
@@ -12,6 +13,15 @@ class EmployeeService:
     async def list_employees(self, filters: dict | None = None) -> list[EmployeeOut]:
         employees = await self.repo.get_all(filters)
         return [EmployeeOut.model_validate(e) for e in employees]
+
+    async def list_employees_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[EmployeeOut.model_validate(e) for e in items],
+            total=total, page=page, page_size=page_size,
+        )
 
     async def get_employee(self, employee_id: int) -> EmployeeOut:
         employee = await self.repo.get_by_id(employee_id)

@@ -1,6 +1,7 @@
 """Projects service - Business logic."""
 
 from shared.exceptions import NotFoundException
+from shared.schemas import PaginatedResponse
 from services.projects.models import Project
 from services.projects.repository import ProjectRepository
 from services.projects.schemas import ProjectCreate, ProjectUpdate, ProjectOut
@@ -13,6 +14,17 @@ class ProjectService:
     async def list_projects(self, filters: dict | None = None) -> list[ProjectOut]:
         projects = await self.repo.get_all(filters)
         return [ProjectOut.model_validate(p) for p in projects]
+
+    async def list_projects_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[ProjectOut.model_validate(p) for p in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
 
     async def get_project(self, project_id: int) -> ProjectOut:
         project = await self.repo.get_by_id(project_id)

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
-from shared.dependencies import get_current_user_id
+from shared.dependencies import get_current_user_id, require_admin, require_manager
 from services.kpis.repository import KpiRepository
 from services.kpis.service import KpiService
 from services.kpis.schemas import (
@@ -18,11 +18,13 @@ def get_service(db: AsyncSession = Depends(get_db)) -> KpiService:
     return KpiService(KpiRepository(db))
 
 
-@router.get("", response_model=list[KpiOut])
+@router.get("")
 async def list_kpis(
     employee_id: int | None = Query(None),
     period: str | None = Query(None),
     status: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
     service: KpiService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -33,7 +35,7 @@ async def list_kpis(
         filters["period"] = period
     if status:
         filters["status"] = status
-    return await service.list_kpis(filters if filters else None)
+    return await service.list_kpis_paginated(filters if filters else None, page, page_size)
 
 
 @router.get("/{kpi_id}", response_model=KpiOut)
@@ -45,7 +47,7 @@ async def get_kpi(
     return await service.get_kpi(kpi_id)
 
 
-@router.post("", response_model=KpiOut)
+@router.post("", response_model=KpiOut, dependencies=[Depends(require_manager)])
 async def create_kpi(
     data: KpiCreate,
     service: KpiService = Depends(get_service),
@@ -54,7 +56,7 @@ async def create_kpi(
     return await service.create_kpi(data)
 
 
-@router.patch("/{kpi_id}", response_model=KpiOut)
+@router.patch("/{kpi_id}", response_model=KpiOut, dependencies=[Depends(require_manager)])
 async def update_kpi(
     kpi_id: int,
     data: KpiUpdate,
@@ -74,7 +76,7 @@ async def evaluate_kpi(
     return await service.evaluate_kpi(kpi_id, data.actual_value)
 
 
-@router.patch("/{kpi_id}/validar", response_model=KpiOut)
+@router.patch("/{kpi_id}/validar", response_model=KpiOut, dependencies=[Depends(require_admin)])
 async def validate_kpi(
     kpi_id: int,
     data: KpiValidate,
@@ -84,7 +86,7 @@ async def validate_kpi(
     return await service.validate_kpi(kpi_id, data.validated)
 
 
-@router.delete("/{kpi_id}", status_code=204)
+@router.delete("/{kpi_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_kpi(
     kpi_id: int,
     service: KpiService = Depends(get_service),

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
-from shared.dependencies import get_current_user_id
+from shared.dependencies import get_current_user_id, require_admin, require_manager
 from services.finance.repository import BudgetRepository, InvoiceRepository
 from services.finance.service import BudgetService, InvoiceService
 from services.finance.schemas import (
@@ -27,10 +27,12 @@ def get_invoice_service(db: AsyncSession = Depends(get_db)) -> InvoiceService:
 # PRESUPUESTOS / BUDGETS
 # ═══════════════════════════════════════════════════════════════
 
-@router.get("/presupuestos", response_model=list[BudgetOut])
+@router.get("/presupuestos")
 async def list_budgets(
     status: str | None = Query(None),
     project_id: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
     service: BudgetService = Depends(get_budget_service),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -39,7 +41,7 @@ async def list_budgets(
         filters["status"] = status
     if project_id:
         filters["project_id"] = project_id
-    return await service.list_budgets(filters if filters else None)
+    return await service.list_budgets_paginated(filters if filters else None, page, page_size)
 
 
 @router.get("/presupuestos/{budget_id}", response_model=BudgetOut)
@@ -51,7 +53,7 @@ async def get_budget(
     return await service.get_budget(budget_id)
 
 
-@router.post("/presupuestos", response_model=BudgetOut)
+@router.post("/presupuestos", response_model=BudgetOut, dependencies=[Depends(require_manager)])
 async def create_budget(
     data: BudgetCreate,
     service: BudgetService = Depends(get_budget_service),
@@ -60,7 +62,7 @@ async def create_budget(
     return await service.create_budget(data)
 
 
-@router.patch("/presupuestos/{budget_id}", response_model=BudgetOut)
+@router.patch("/presupuestos/{budget_id}", response_model=BudgetOut, dependencies=[Depends(require_manager)])
 async def update_budget(
     budget_id: int,
     data: BudgetUpdate,
@@ -70,7 +72,7 @@ async def update_budget(
     return await service.update_budget(budget_id, data)
 
 
-@router.delete("/presupuestos/{budget_id}", status_code=204)
+@router.delete("/presupuestos/{budget_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_budget(
     budget_id: int,
     service: BudgetService = Depends(get_budget_service),
@@ -88,7 +90,7 @@ async def get_budget_execution(
     return await service.get_execution(budget_id)
 
 
-@router.post("/presupuestos/{budget_id}/gastos", response_model=BudgetOut)
+@router.post("/presupuestos/{budget_id}/gastos", response_model=BudgetOut, dependencies=[Depends(require_manager)])
 async def register_expense(
     budget_id: int,
     data: ExpenseRegister,
@@ -102,11 +104,13 @@ async def register_expense(
 # FACTURAS / INVOICES
 # ═══════════════════════════════════════════════════════════════
 
-@router.get("/facturas", response_model=list[InvoiceOut])
+@router.get("/facturas")
 async def list_invoices(
     status: str | None = Query(None),
     project_id: int | None = Query(None),
     client: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
     service: InvoiceService = Depends(get_invoice_service),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -117,7 +121,7 @@ async def list_invoices(
         filters["project_id"] = project_id
     if client:
         filters["client"] = client
-    return await service.list_invoices(filters if filters else None)
+    return await service.list_invoices_paginated(filters if filters else None, page, page_size)
 
 
 @router.get("/facturas/{invoice_id}", response_model=InvoiceOut)
@@ -129,7 +133,7 @@ async def get_invoice(
     return await service.get_invoice(invoice_id)
 
 
-@router.post("/facturas", response_model=InvoiceOut)
+@router.post("/facturas", response_model=InvoiceOut, dependencies=[Depends(require_manager)])
 async def create_invoice(
     data: InvoiceCreate,
     service: InvoiceService = Depends(get_invoice_service),
@@ -138,7 +142,7 @@ async def create_invoice(
     return await service.create_invoice(data)
 
 
-@router.patch("/facturas/{invoice_id}", response_model=InvoiceOut)
+@router.patch("/facturas/{invoice_id}", response_model=InvoiceOut, dependencies=[Depends(require_manager)])
 async def update_invoice(
     invoice_id: int,
     data: InvoiceUpdate,
@@ -148,7 +152,7 @@ async def update_invoice(
     return await service.update_invoice(invoice_id, data)
 
 
-@router.patch("/facturas/{invoice_id}/estado", response_model=InvoiceOut)
+@router.patch("/facturas/{invoice_id}/estado", response_model=InvoiceOut, dependencies=[Depends(require_manager)])
 async def update_invoice_status(
     invoice_id: int,
     data: InvoiceStatusUpdate,
@@ -158,7 +162,7 @@ async def update_invoice_status(
     return await service.update_status(invoice_id, data.status)
 
 
-@router.delete("/facturas/{invoice_id}", status_code=204)
+@router.delete("/facturas/{invoice_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_invoice(
     invoice_id: int,
     service: InvoiceService = Depends(get_invoice_service),

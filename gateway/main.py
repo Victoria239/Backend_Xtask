@@ -11,6 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from shared.config import get_settings
 from shared.database import init_db
 from shared.logging import setup_logging, get_logger
+from shared.middleware import (
+    RequestIdMiddleware,
+    RequestLoggingMiddleware,
+    register_exception_handlers,
+)
 
 # Import service routers
 from services.auth.router import router as auth_router
@@ -54,15 +59,20 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json" if settings.is_development else None,
     )
 
-    # ─── CORS ────────────────────────────────────────────────
+    # ─── Middleware (order matters: last added = first executed) ─
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Total-Count"],
+        expose_headers=["X-Total-Count", "X-Request-ID"],
     )
+    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(RequestIdMiddleware)
+
+    # ─── Exception handlers ──────────────────────────────────
+    register_exception_handlers(app)
 
     # ─── Register service routers ────────────────────────────
     app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])

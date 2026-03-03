@@ -1,6 +1,7 @@
 """Payroll service - Business logic."""
 
 from shared.exceptions import NotFoundException
+from shared.schemas import PaginatedResponse
 from services.payroll.repository import PayrollRepository
 from services.payroll.schemas import PayrollCreate, PayrollUpdate, PayrollOut
 
@@ -12,6 +13,15 @@ class PayrollService:
     async def list_payrolls(self, filters: dict | None = None) -> list[PayrollOut]:
         payrolls = await self.repo.get_all(filters)
         return [PayrollOut.model_validate(p) for p in payrolls]
+
+    async def list_payrolls_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[PayrollOut.model_validate(p) for p in items],
+            total=total, page=page, page_size=page_size,
+        )
 
     async def get_payroll(self, payroll_id: int) -> PayrollOut:
         payroll = await self.repo.get_by_id(payroll_id)

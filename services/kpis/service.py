@@ -1,6 +1,7 @@
 """KPIs service - Business logic."""
 
 from shared.exceptions import NotFoundException
+from shared.schemas import PaginatedResponse
 from services.kpis.repository import KpiRepository
 from services.kpis.schemas import KpiCreate, KpiUpdate, KpiOut
 
@@ -12,6 +13,15 @@ class KpiService:
     async def list_kpis(self, filters: dict | None = None) -> list[KpiOut]:
         kpis = await self.repo.get_all(filters)
         return [KpiOut.model_validate(k) for k in kpis]
+
+    async def list_kpis_paginated(
+        self, filters: dict | None = None, page: int = 1, page_size: int = 20
+    ) -> PaginatedResponse:
+        items, total = await self.repo.get_paginated(page, page_size, filters)
+        return PaginatedResponse.create(
+            items=[KpiOut.model_validate(k) for k in items],
+            total=total, page=page, page_size=page_size,
+        )
 
     async def get_kpi(self, kpi_id: int) -> KpiOut:
         kpi = await self.repo.get_by_id(kpi_id)
