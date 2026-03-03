@@ -19,7 +19,18 @@ class Settings(BaseSettings):
     # Server
     ENVIRONMENT: str = "development"
     GATEWAY_PORT: int = 8000
+    GATEWAY_MODE: str = "monolith"  # "monolith" or "proxy"
     LOG_LEVEL: str = "DEBUG"
+
+    # Microservice URLs (used in proxy mode)
+    AUTH_SERVICE_URL: str = "http://localhost:8001"
+    PROJECTS_SERVICE_URL: str = "http://localhost:8002"
+    EMPLOYEES_SERVICE_URL: str = "http://localhost:8003"
+    FINANCE_SERVICE_URL: str = "http://localhost:8004"
+    PAYROLL_SERVICE_URL: str = "http://localhost:8005"
+    KPIS_SERVICE_URL: str = "http://localhost:8006"
+    SKILLS_SERVICE_URL: str = "http://localhost:8007"
+    DASHBOARD_SERVICE_URL: str = "http://localhost:8008"
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
