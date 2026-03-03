@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
-from shared.dependencies import get_current_user_id
+from shared.dependencies import get_current_user_id, require_admin
 from services.dashboard.repository import LayoutRepository, WidgetRepository
 from services.dashboard.service import DashboardService
 from services.dashboard.schemas import (
@@ -66,7 +66,7 @@ async def update_layout(
     return await service.update_layout(layout_id, data)
 
 
-@router.delete("/layouts/{layout_id}", status_code=204)
+@router.delete("/layouts/{layout_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_layout(
     layout_id: int,
     service: DashboardService = Depends(get_service),
@@ -116,7 +116,7 @@ async def update_widget(
     return await service.update_widget(widget_id, data)
 
 
-@router.delete("/layouts/{layout_id}/widgets/{widget_id}", status_code=204)
+@router.delete("/layouts/{layout_id}/widgets/{widget_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def remove_widget(
     layout_id: int,
     widget_id: int,

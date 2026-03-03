@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
-from shared.dependencies import get_current_user_id
+from shared.dependencies import get_current_user_id, require_admin, require_manager
+from shared.schemas import PaginatedResponse
 from services.projects.repository import ProjectRepository
 from services.projects.service import ProjectService
 from services.projects.schemas import ProjectCreate, ProjectUpdate, ProjectOut, ProjectStatusUpdate
@@ -16,13 +17,14 @@ def get_service(db: AsyncSession = Depends(get_db)) -> ProjectService:
     return ProjectService(ProjectRepository(db))
 
 
-@router.get("", response_model=list[ProjectOut])
+@router.get("")
 async def list_projects(
     estado: str | None = Query(None),
     busqueda: str | None = Query(None),
     departamentoId: int | None = Query(None),
     responsableId: int | None = Query(None),
-    pageSize: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
     service: ProjectService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -31,7 +33,7 @@ async def list_projects(
         filters["estado"] = estado
     if busqueda:
         filters["busqueda"] = busqueda
-    return await service.list_projects(filters if filters else None)
+    return await service.list_projects_paginated(filters if filters else None, page, page_size)
 
 
 @router.get("/indicadores")
@@ -51,7 +53,7 @@ async def get_project(
     return await service.get_project(project_id)
 
 
-@router.post("", response_model=ProjectOut)
+@router.post("", response_model=ProjectOut, dependencies=[Depends(require_manager)])
 async def create_project(
     data: ProjectCreate,
     service: ProjectService = Depends(get_service),
@@ -60,7 +62,7 @@ async def create_project(
     return await service.create_project(data)
 
 
-@router.patch("/{project_id}", response_model=ProjectOut)
+@router.patch("/{project_id}", response_model=ProjectOut, dependencies=[Depends(require_manager)])
 async def update_project(
     project_id: int,
     data: ProjectUpdate,
@@ -70,7 +72,7 @@ async def update_project(
     return await service.update_project(project_id, data)
 
 
-@router.patch("/{project_id}/estado", response_model=ProjectOut)
+@router.patch("/{project_id}/estado", response_model=ProjectOut, dependencies=[Depends(require_manager)])
 async def change_status(
     project_id: int,
     data: ProjectStatusUpdate,
@@ -80,7 +82,7 @@ async def change_status(
     return await service.change_status(project_id, data.estado)
 
 
-@router.delete("/{project_id}", status_code=204)
+@router.delete("/{project_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_project(
     project_id: int,
     service: ProjectService = Depends(get_service),

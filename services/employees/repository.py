@@ -1,16 +1,18 @@
 """Employees service - Database repository."""
 
+from typing import Any
+
 from sqlalchemy import select, desc, delete
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.employees.models import Employee, EmployeeProject
+from shared.repository import BaseRepository
 
 
-class EmployeeRepository:
-    def __init__(self, db: AsyncSession):
-        self.db = db
+class EmployeeRepository(BaseRepository[Employee]):
+    model = Employee
 
-    async def get_all(self, filters: dict | None = None) -> list[Employee]:
+    async def get_all(self, filters: dict[str, Any] | None = None, **kwargs) -> list[Employee]:
+        """Override to support search by name and custom filter keys."""
         query = select(Employee).order_by(desc(Employee.created_at))
         if filters:
             if filters.get("department"):
@@ -25,50 +27,26 @@ class EmployeeRepository:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def get_by_id(self, employee_id: int) -> Employee | None:
-        result = await self.db.execute(select(Employee).where(Employee.id == employee_id))
-        return result.scalar_one_or_none()
-
     async def get_by_user_id(self, user_id: int) -> Employee | None:
         result = await self.db.execute(select(Employee).where(Employee.user_id == user_id))
         return result.scalar_one_or_none()
 
-    async def create(self, data: dict) -> Employee:
-        employee = Employee(**data)
-        self.db.add(employee)
-        await self.db.flush()
-        await self.db.refresh(employee)
-        return employee
-
-    async def update(self, employee_id: int, data: dict) -> Employee | None:
-        employee = await self.get_by_id(employee_id)
-        if not employee:
-            return None
-        for key, value in data.items():
-            if value is not None:
-                setattr(employee, key, value)
-        await self.db.flush()
-        await self.db.refresh(employee)
-        return employee
-
-    async def delete(self, employee_id: int) -> bool:
-        employee = await self.get_by_id(employee_id)
+    async def delete(self, entity_id: int) -> bool:
+        """Override to cascade-delete project assignments."""
+        employee = await self.get_by_id(entity_id)
         if not employee:
             return False
-        # Delete project assignments first
         await self.db.execute(
-            delete(EmployeeProject).where(EmployeeProject.employee_id == employee_id)
+            delete(EmployeeProject).where(EmployeeProject.employee_id == entity_id)
         )
         await self.db.delete(employee)
         await self.db.flush()
         return True
 
     async def assign_projects(self, employee_id: int, project_ids: list[int]) -> None:
-        # Remove existing assignments
         await self.db.execute(
             delete(EmployeeProject).where(EmployeeProject.employee_id == employee_id)
         )
-        # Add new assignments
         for project_id in project_ids:
             assignment = EmployeeProject(employee_id=employee_id, project_id=project_id)
             self.db.add(assignment)

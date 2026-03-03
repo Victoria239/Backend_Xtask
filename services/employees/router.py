@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
-from shared.dependencies import get_current_user_id
+from shared.dependencies import get_current_user_id, require_admin, require_manager
+from shared.schemas import PaginatedResponse
 from services.employees.repository import EmployeeRepository
 from services.employees.service import EmployeeService
 from services.employees.schemas import (
@@ -21,11 +22,13 @@ def get_service(db: AsyncSession = Depends(get_db)) -> EmployeeService:
     return EmployeeService(EmployeeRepository(db))
 
 
-@router.get("", response_model=list[EmployeeOut])
+@router.get("")
 async def list_employees(
     department: str | None = Query(None),
     contract_status: str | None = Query(None),
     search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
     service: EmployeeService = Depends(get_service),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -36,7 +39,7 @@ async def list_employees(
         filters["contract_status"] = contract_status
     if search:
         filters["search"] = search
-    return await service.list_employees(filters if filters else None)
+    return await service.list_employees_paginated(filters if filters else None, page, page_size)
 
 
 @router.get("/{employee_id}", response_model=EmployeeOut)
@@ -48,7 +51,7 @@ async def get_employee(
     return await service.get_employee(employee_id)
 
 
-@router.post("", response_model=EmployeeOut)
+@router.post("", response_model=EmployeeOut, dependencies=[Depends(require_manager)])
 async def create_employee(
     data: EmployeeCreate,
     service: EmployeeService = Depends(get_service),
@@ -57,7 +60,7 @@ async def create_employee(
     return await service.create_employee(data)
 
 
-@router.patch("/{employee_id}", response_model=EmployeeOut)
+@router.patch("/{employee_id}", response_model=EmployeeOut, dependencies=[Depends(require_manager)])
 async def update_employee(
     employee_id: int,
     data: EmployeeUpdate,
@@ -67,7 +70,7 @@ async def update_employee(
     return await service.update_employee(employee_id, data)
 
 
-@router.delete("/{employee_id}", status_code=204)
+@router.delete("/{employee_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_employee(
     employee_id: int,
     service: EmployeeService = Depends(get_service),
@@ -76,7 +79,7 @@ async def delete_employee(
     await service.delete_employee(employee_id)
 
 
-@router.put("/{employee_id}/proyectos")
+@router.put("/{employee_id}/proyectos", dependencies=[Depends(require_manager)])
 async def assign_projects(
     employee_id: int,
     data: EmployeeProjectAssign,
