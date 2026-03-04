@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import select, desc, delete
+from sqlalchemy import select, delete
 
 from services.employees.models import Employee, EmployeeProject
 from shared.repository import BaseRepository
@@ -11,9 +11,8 @@ from shared.repository import BaseRepository
 class EmployeeRepository(BaseRepository[Employee]):
     model = Employee
 
-    async def get_all(self, filters: dict[str, Any] | None = None, **kwargs) -> list[Employee]:
-        """Override to support search by name and custom filter keys."""
-        query = select(Employee).order_by(desc(Employee.created_at))
+    def _apply_filters(self, query, filters: dict[str, Any] | None = None):
+        """Support search by name and custom filter keys."""
         if filters:
             if filters.get("department"):
                 query = query.where(Employee.department == filters["department"])
@@ -24,8 +23,7 @@ class EmployeeRepository(BaseRepository[Employee]):
                 query = query.where(
                     (Employee.first_name.ilike(search)) | (Employee.last_name.ilike(search))
                 )
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return query
 
     async def get_by_user_id(self, user_id: int) -> Employee | None:
         result = await self.db.execute(select(Employee).where(Employee.user_id == user_id))

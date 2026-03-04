@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from shared.config import get_settings
+from shared.config import APP_VERSION, get_settings
 from shared.database import init_db
 from shared.logging import setup_logging, get_logger
 from shared.middleware import (
@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 def create_service_app(
     title: str,
     service_name: str,
-    version: str = "0.1.0",
+    version: str = APP_VERSION,
     prefix: str = "",
 ) -> FastAPI:
     """Create a FastAPI app for a standalone microservice."""

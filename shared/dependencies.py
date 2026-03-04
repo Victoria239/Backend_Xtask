@@ -74,16 +74,10 @@ async def get_optional_user_id(
     """Extract user ID from JWT token, or return None if not authenticated."""
     if credentials is None:
         return None
-
     try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-        user_id = payload.get("sub")
-        return int(user_id) if user_id is not None else None
-    except JWTError:
+        user = await get_current_user(credentials, settings)
+        return user.id
+    except UnauthorizedException:
         return None
 
 

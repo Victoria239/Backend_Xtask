@@ -13,10 +13,6 @@ class BudgetService:
     def __init__(self, repo: BudgetRepository):
         self.repo = repo
 
-    async def list_budgets(self, filters: dict | None = None) -> list[BudgetOut]:
-        budgets = await self.repo.get_all(filters)
-        return [BudgetOut.model_validate(b) for b in budgets]
-
     async def list_budgets_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:
@@ -73,10 +69,6 @@ class BudgetService:
 class InvoiceService:
     def __init__(self, repo: InvoiceRepository):
         self.repo = repo
-
-    async def list_invoices(self, filters: dict | None = None) -> list[InvoiceOut]:
-        invoices = await self.repo.get_all(filters)
-        return [InvoiceOut.model_validate(i) for i in invoices]
 
     async def list_invoices_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20

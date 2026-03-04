@@ -10,10 +10,6 @@ class EmployeeService:
     def __init__(self, repo: EmployeeRepository):
         self.repo = repo
 
-    async def list_employees(self, filters: dict | None = None) -> list[EmployeeOut]:
-        employees = await self.repo.get_all(filters)
-        return [EmployeeOut.model_validate(e) for e in employees]
-
     async def list_employees_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:

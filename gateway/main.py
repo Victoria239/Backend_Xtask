@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from shared.config import get_settings
+from shared.config import APP_VERSION, get_settings
 from shared.database import init_db
 from shared.logging import setup_logging, get_logger
 from shared.middleware import (
@@ -23,73 +23,80 @@ from shared.middleware import (
 
 logger = get_logger(__name__)
 
-# ─── Service route mapping ─────────────────────────────────────
-SERVICE_ROUTES: dict[str, str] = {}
-_http_client: httpx.AsyncClient | None = None
 
+# ─── Proxy client ──────────────────────────────────────────────
+class ProxyClient:
+    """Encapsulates HTTP client and service route mapping for proxy mode."""
 
-def _build_service_routes():
-    """Build route prefix -> service URL mapping from settings."""
-    settings = get_settings()
-    return {
-        "/api/auth": settings.AUTH_SERVICE_URL,
-        "/api/proyectos": settings.PROJECTS_SERVICE_URL,
-        "/api/empleados": settings.EMPLOYEES_SERVICE_URL,
-        "/api/finanzas": settings.FINANCE_SERVICE_URL,
-        "/api/nominas": settings.PAYROLL_SERVICE_URL,
-        "/api/kpis": settings.KPIS_SERVICE_URL,
-        "/api/habilidades": settings.SKILLS_SERVICE_URL,
-        "/api/dashboard": settings.DASHBOARD_SERVICE_URL,
-    }
+    def __init__(self):
+        self.routes: dict[str, str] = {}
+        self._client: httpx.AsyncClient | None = None
 
+    def build_routes(self):
+        settings = get_settings()
+        self.routes = {
+            "/api/auth": settings.AUTH_SERVICE_URL,
+            "/api/proyectos": settings.PROJECTS_SERVICE_URL,
+            "/api/empleados": settings.EMPLOYEES_SERVICE_URL,
+            "/api/finanzas": settings.FINANCE_SERVICE_URL,
+            "/api/nominas": settings.PAYROLL_SERVICE_URL,
+            "/api/kpis": settings.KPIS_SERVICE_URL,
+            "/api/habilidades": settings.SKILLS_SERVICE_URL,
+            "/api/dashboard": settings.DASHBOARD_SERVICE_URL,
+        }
 
-# ─── Reverse proxy handler ────────────────────────────────────
-async def _proxy_request(request: Request, target_url: str) -> Response:
-    """Forward an incoming request to the target microservice."""
-    global _http_client
-    if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=30.0)
+    @property
+    def client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=30.0)
+        return self._client
 
-    url = f"{target_url}{request.url.path}"
-    if request.url.query:
-        url = f"{url}?{request.url.query}"
+    async def forward(self, request: Request, target_url: str) -> Response:
+        """Forward an incoming request to the target microservice."""
+        url = f"{target_url}{request.url.path}"
+        if request.url.query:
+            url = f"{url}?{request.url.query}"
 
-    headers = dict(request.headers)
-    headers.pop("host", None)
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        body = await request.body()
 
-    body = await request.body()
+        try:
+            resp = await self.client.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                content=body,
+            )
+        except httpx.ConnectError:
+            return Response(
+                content='{"success":false,"error":"Service unavailable"}',
+                status_code=503,
+                media_type="application/json",
+            )
 
-    try:
-        resp = await _http_client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-        )
-    except httpx.ConnectError:
+        excluded = {"content-encoding", "content-length", "transfer-encoding"}
+        resp_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded}
+
         return Response(
-            content='{"success":false,"error":"Service unavailable"}',
-            status_code=503,
-            media_type="application/json",
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=resp_headers,
+            media_type=resp.headers.get("content-type"),
         )
 
-    excluded_headers = {"content-encoding", "content-length", "transfer-encoding"}
-    response_headers = {
-        k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers
-    }
+    async def close(self):
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
-    return Response(
-        content=resp.content,
-        status_code=resp.status_code,
-        headers=response_headers,
-        media_type=resp.headers.get("content-type"),
-    )
+
+proxy = ProxyClient()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
-    global _http_client, SERVICE_ROUTES
     setup_logging()
     settings = get_settings()
     logger.info(
@@ -103,14 +110,12 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("database_initialized")
     else:
-        SERVICE_ROUTES.update(_build_service_routes())
-        _http_client = httpx.AsyncClient(timeout=30.0)
-        logger.info("proxy_mode_enabled", services=list(SERVICE_ROUTES.keys()))
+        proxy.build_routes()
+        logger.info("proxy_mode_enabled", services=list(proxy.routes.keys()))
 
     yield
 
-    if _http_client:
-        await _http_client.aclose()
+    await proxy.close()
     logger.info("shutting_down_gateway")
 
 
@@ -120,7 +125,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="XTask API Gateway",
         description="Reverse proxy gateway for XTask microservices",
-        version="0.2.0",
+        version=APP_VERSION,
         lifespan=lifespan,
         docs_url="/api/docs" if settings.is_development else None,
         redoc_url="/api/redoc" if settings.is_development else None,
@@ -145,7 +150,7 @@ def create_app() -> FastAPI:
     # ─── Health check ────────────────────────────────────────
     @app.get("/api/health", tags=["Health"])
     async def health_check():
-        return {"status": "ok", "service": "xtask-gateway", "version": "0.2.0", "mode": settings.GATEWAY_MODE}
+        return {"status": "ok", "service": "xtask-gateway", "version": APP_VERSION, "mode": settings.GATEWAY_MODE}
 
     @app.get("/api/health/services", tags=["Health"])
     async def services_health():
@@ -154,10 +159,10 @@ def create_app() -> FastAPI:
             return {"mode": "monolith", "message": "All services run in-process"}
 
         results = {}
-        for prefix, url in SERVICE_ROUTES.items():
+        for prefix, url in proxy.routes.items():
             svc_name = prefix.replace("/api/", "")
             try:
-                resp = await _http_client.get(f"{url}{prefix}/health", timeout=5.0)
+                resp = await proxy.client.get(f"{url}{prefix}/health", timeout=5.0)
                 results[svc_name] = {"status": "ok", "url": url} if resp.status_code == 200 else {"status": "unhealthy", "url": url}
             except Exception:
                 results[svc_name] = {"status": "unreachable", "url": url}
@@ -167,8 +172,8 @@ def create_app() -> FastAPI:
     if settings.GATEWAY_MODE == "monolith":
         _register_monolith_routers(app)
     else:
-        routes = _build_service_routes()
-        _register_proxy_routes(app, routes)
+        proxy.build_routes()
+        _register_proxy_routes(app, proxy.routes)
 
     return app
 
@@ -205,7 +210,7 @@ def _add_proxy_route(app: FastAPI, prefix: str, target: str):
     tag = prefix.replace("/api/", "").capitalize()
 
     async def _forward(request: Request, _target: str = target) -> Response:
-        return await _proxy_request(request, _target)
+        return await proxy.forward(request, _target)
 
     app.add_api_route(
         prefix,
@@ -216,7 +221,7 @@ def _add_proxy_route(app: FastAPI, prefix: str, target: str):
     )
 
     async def _forward_sub(request: Request, path: str, _target: str = target) -> Response:
-        return await _proxy_request(request, _target)
+        return await proxy.forward(request, _target)
 
     app.add_api_route(
         f"{prefix}/{{path:path}}",

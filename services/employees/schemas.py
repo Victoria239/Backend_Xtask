@@ -11,7 +11,7 @@ class EmployeeCreate(BaseModel):
     last_name: str | None = None
     position: str
     department: str
-    salary: str
+    salary: float
     contract_status: str = "active"
 
 
@@ -20,7 +20,7 @@ class EmployeeUpdate(BaseModel):
     last_name: str | None = None
     position: str | None = None
     department: str | None = None
-    salary: str | None = None
+    salary: float | None = None
     contract_status: str | None = None
 
 
@@ -31,7 +31,7 @@ class EmployeeOut(BaseModel):
     last_name: str | None = None
     position: str
     department: str
-    salary: str
+    salary: float
     contract_status: str
     created_at: datetime | None = None
     updated_at: datetime | None = None

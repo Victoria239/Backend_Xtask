@@ -2,7 +2,6 @@
 
 from shared.exceptions import NotFoundException
 from shared.schemas import PaginatedResponse
-from services.projects.models import Project
 from services.projects.repository import ProjectRepository
 from services.projects.schemas import ProjectCreate, ProjectUpdate, ProjectOut
 
@@ -10,10 +9,6 @@ from services.projects.schemas import ProjectCreate, ProjectUpdate, ProjectOut
 class ProjectService:
     def __init__(self, repo: ProjectRepository):
         self.repo = repo
-
-    async def list_projects(self, filters: dict | None = None) -> list[ProjectOut]:
-        projects = await self.repo.get_all(filters)
-        return [ProjectOut.model_validate(p) for p in projects]
 
     async def list_projects_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
@@ -54,13 +49,4 @@ class ProjectService:
             raise NotFoundException("Project", project_id)
 
     async def get_indicators(self) -> dict:
-        projects = await self.repo.get_all()
-        total = len(projects)
-        active = sum(1 for p in projects if p.status == "active")
-        completed = sum(1 for p in projects if p.status == "completed")
-        return {
-            "total": total,
-            "activos": active,
-            "completados": completed,
-            "enProgreso": total - active - completed,
-        }
+        return await self.repo.get_indicators()

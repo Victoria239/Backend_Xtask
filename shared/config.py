@@ -1,5 +1,9 @@
 from functools import lru_cache
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
+
+APP_VERSION: str = "0.2.0"
 
 
 class Settings(BaseSettings):
@@ -21,6 +25,12 @@ class Settings(BaseSettings):
     GATEWAY_PORT: int = 8000
     GATEWAY_MODE: str = "monolith"  # "monolith" or "proxy"
     LOG_LEVEL: str = "DEBUG"
+
+    @model_validator(mode="after")
+    def _validate_jwt_secret(self):
+        if self.ENVIRONMENT != "development" and self.JWT_SECRET == "change-this-in-production":
+            raise ValueError("JWT_SECRET must be set to a secure value in non-development environments")
+        return self
 
     # Microservice URLs (used in proxy mode)
     AUTH_SERVICE_URL: str = "http://localhost:8001"

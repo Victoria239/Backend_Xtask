@@ -3,8 +3,6 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select, desc
-
 from services.finance.models import Budget, Invoice
 from shared.repository import BaseRepository
 
@@ -25,9 +23,8 @@ class BudgetRepository(BaseRepository[Budget]):
 class InvoiceRepository(BaseRepository[Invoice]):
     model = Invoice
 
-    async def get_all(self, filters: dict[str, Any] | None = None, **kwargs) -> list[Invoice]:
-        """Override to support ilike search on client name."""
-        query = select(Invoice).order_by(desc(Invoice.created_at))
+    def _apply_filters(self, query, filters: dict[str, Any] | None = None):
+        """Support ilike search on client name."""
         if filters:
             if filters.get("status"):
                 query = query.where(Invoice.status == filters["status"])
@@ -35,8 +32,7 @@ class InvoiceRepository(BaseRepository[Invoice]):
                 query = query.where(Invoice.project_id == filters["project_id"])
             if filters.get("client"):
                 query = query.where(Invoice.client.ilike(f"%{filters['client']}%"))
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return query
 
     async def update_status(self, invoice_id: int, status: str) -> Invoice | None:
         invoice = await self.get_by_id(invoice_id)

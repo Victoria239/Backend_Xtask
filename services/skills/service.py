@@ -10,10 +10,6 @@ class SkillService:
     def __init__(self, repo: SkillRepository):
         self.repo = repo
 
-    async def list_skills(self, filters: dict | None = None) -> list[SkillOut]:
-        skills = await self.repo.get_all(filters)
-        return [SkillOut.model_validate(s) for s in skills]
-
     async def list_skills_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:
