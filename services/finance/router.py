@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_db
+from shared.database import get_service_db
 from shared.dependencies import get_current_user_id, require_admin, require_manager
 from services.finance.repository import BudgetRepository, InvoiceRepository
 from services.finance.service import BudgetService, InvoiceService
@@ -15,11 +15,11 @@ from services.finance.schemas import (
 router = APIRouter()
 
 
-def get_budget_service(db: AsyncSession = Depends(get_db)) -> BudgetService:
+def get_budget_service(db: AsyncSession = Depends(get_service_db("finance"))) -> BudgetService:
     return BudgetService(BudgetRepository(db))
 
 
-def get_invoice_service(db: AsyncSession = Depends(get_db)) -> InvoiceService:
+def get_invoice_service(db: AsyncSession = Depends(get_service_db("finance"))) -> InvoiceService:
     return InvoiceService(InvoiceRepository(db))
 
 

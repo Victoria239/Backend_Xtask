@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -10,9 +10,10 @@ from shared.database import Base
 
 class Employee(Base):
     __tablename__ = "employees"
+    __table_args__ = {"schema": "svc_employees"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
     first_name: Mapped[str | None] = mapped_column(String, nullable=True)
     last_name: Mapped[str | None] = mapped_column(String, nullable=True)
     position: Mapped[str] = mapped_column(String, nullable=False)
@@ -25,7 +26,8 @@ class Employee(Base):
 
 class EmployeeProject(Base):
     __tablename__ = "employee_projects"
+    __table_args__ = {"schema": "svc_employees"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=False)
+    employee_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    project_id: Mapped[int] = mapped_column(Integer, nullable=False)

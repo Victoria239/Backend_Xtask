@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+# ForeignKey kept only for intra-schema references (widget → layout)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -10,9 +11,10 @@ from shared.database import Base
 
 class DashboardLayout(Base):
     __tablename__ = "dashboard_layouts"
+    __table_args__ = {"schema": "svc_dashboard"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -21,9 +23,10 @@ class DashboardLayout(Base):
 
 class DashboardWidget(Base):
     __tablename__ = "dashboard_widgets"
+    __table_args__ = {"schema": "svc_dashboard"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    layout_id: Mapped[int] = mapped_column(Integer, ForeignKey("dashboard_layouts.id"), nullable=False)
+    layout_id: Mapped[int] = mapped_column(Integer, ForeignKey("svc_dashboard.dashboard_layouts.id"), nullable=False)
     widget_type: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     config: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -10,9 +10,10 @@ from shared.database import Base
 
 class Skill(Base):
     __tablename__ = "skills"
+    __table_args__ = {"schema": "svc_skills"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
+    employee_id: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     category: Mapped[str | None] = mapped_column(String, nullable=True)
     level: Mapped[str] = mapped_column(String, nullable=False, default="beginner")

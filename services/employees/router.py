@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_db
+from shared.database import get_service_db
 from shared.dependencies import get_current_user_id, require_admin, require_manager
 from shared.schemas import PaginatedResponse
 from services.employees.repository import EmployeeRepository
@@ -18,7 +18,7 @@ from services.employees.schemas import (
 router = APIRouter()
 
 
-def get_service(db: AsyncSession = Depends(get_db)) -> EmployeeService:
+def get_service(db: AsyncSession = Depends(get_service_db("employees"))) -> EmployeeService:
     return EmployeeService(EmployeeRepository(db))
 
 

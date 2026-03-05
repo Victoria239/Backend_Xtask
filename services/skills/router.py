@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_db
+from shared.database import get_service_db
 from shared.dependencies import get_current_user_id, require_admin, require_manager
 from services.skills.repository import SkillRepository
 from services.skills.service import SkillService
@@ -12,7 +12,7 @@ from services.skills.schemas import SkillCreate, SkillUpdate, SkillOut
 router = APIRouter()
 
 
-def get_service(db: AsyncSession = Depends(get_db)) -> SkillService:
+def get_service(db: AsyncSession = Depends(get_service_db("skills"))) -> SkillService:
     return SkillService(SkillRepository(db))
 
 

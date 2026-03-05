@@ -10,6 +10,7 @@ from shared.database import Base
 
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = {"schema": "svc_projects"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)

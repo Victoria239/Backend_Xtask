@@ -9,8 +9,24 @@ APP_VERSION: str = "0.2.0"
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Database
+    # Database (shared default — used by gateway in monolith mode)
     DATABASE_URL: str = "postgresql+asyncpg://xtask:xtask_dev_2024@localhost:5432/xtask_db"
+
+    # Per-service database URLs (default to shared DATABASE_URL)
+    AUTH_DATABASE_URL: str = ""
+    PROJECTS_DATABASE_URL: str = ""
+    EMPLOYEES_DATABASE_URL: str = ""
+    FINANCE_DATABASE_URL: str = ""
+    PAYROLL_DATABASE_URL: str = ""
+    KPIS_DATABASE_URL: str = ""
+    SKILLS_DATABASE_URL: str = ""
+    DASHBOARD_DATABASE_URL: str = ""
+
+    def get_service_database_url(self, service: str) -> str:
+        """Return the database URL for a specific service, falling back to DATABASE_URL."""
+        key = f"{service.upper()}_DATABASE_URL"
+        url = getattr(self, key, "") or ""
+        return url if url else self.DATABASE_URL
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
