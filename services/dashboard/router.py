@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_db
+from shared.database import get_service_db
 from shared.dependencies import get_current_user_id, require_admin
 from services.dashboard.repository import LayoutRepository, WidgetRepository
 from services.dashboard.service import DashboardService
@@ -15,7 +15,7 @@ from services.dashboard.schemas import (
 router = APIRouter()
 
 
-def get_service(db: AsyncSession = Depends(get_db)) -> DashboardService:
+def get_service(db: AsyncSession = Depends(get_service_db("dashboard"))) -> DashboardService:
     return DashboardService(LayoutRepository(db), WidgetRepository(db))
 
 

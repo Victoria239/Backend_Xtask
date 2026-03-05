@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -10,9 +10,10 @@ from shared.database import Base
 
 class Budget(Base):
     __tablename__ = "budgets"
+    __table_args__ = {"schema": "svc_finance"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    project_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True)
+    project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
@@ -24,9 +25,10 @@ class Budget(Base):
 
 class Invoice(Base):
     __tablename__ = "invoices"
+    __table_args__ = {"schema": "svc_finance"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    project_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True)
+    project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     invoice_number: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     client: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

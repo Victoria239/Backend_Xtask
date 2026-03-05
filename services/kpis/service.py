@@ -10,10 +10,6 @@ class KpiService:
     def __init__(self, repo: KpiRepository):
         self.repo = repo
 
-    async def list_kpis(self, filters: dict | None = None) -> list[KpiOut]:
-        kpis = await self.repo.get_all(filters)
-        return [KpiOut.model_validate(k) for k in kpis]
-
     async def list_kpis_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:

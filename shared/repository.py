@@ -32,6 +32,23 @@ class BaseRepository(Generic[ModelT]):
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    # ─── Filters ──────────────────────────────────────────────
+
+    def _apply_filters(
+        self, query, filters: dict[str, Any] | None = None,
+    ):
+        """Apply filters to a query. Override in subclasses for custom logic.
+
+        Must return the modified query. Default implementation does exact-match
+        on any key that matches a model column.
+        """
+        if filters:
+            for key, value in filters.items():
+                column = getattr(self.model, key, None)
+                if column is not None and value is not None:
+                    query = query.where(column == value)
+        return query
+
     # ─── Read ────────────────────────────────────────────────
 
     async def get_by_id(self, entity_id: int) -> ModelT | None:
@@ -50,13 +67,7 @@ class BaseRepository(Generic[ModelT]):
         if col is None:
             col = getattr(self.model, "id")
         query = select(self.model).order_by(desc(col) if descending else col)
-
-        if filters:
-            for key, value in filters.items():
-                column = getattr(self.model, key, None)
-                if column is not None and value is not None:
-                    query = query.where(column == value)
-
+        query = self._apply_filters(query, filters)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -97,15 +108,10 @@ class BaseRepository(Generic[ModelT]):
         if col is None:
             col = getattr(self.model, "id")
 
-        base_query = select(self.model)
-        count_query = select(func.count()).select_from(self.model)
-
-        if filters:
-            for key, value in filters.items():
-                column = getattr(self.model, key, None)
-                if column is not None and value is not None:
-                    base_query = base_query.where(column == value)
-                    count_query = count_query.where(column == value)
+        base_query = self._apply_filters(select(self.model), filters)
+        count_query = self._apply_filters(
+            select(func.count()).select_from(self.model), filters,
+        )
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0

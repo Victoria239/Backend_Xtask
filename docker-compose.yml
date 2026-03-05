@@ -1,5 +1,27 @@
 version: "3.9"
 
+# ═══════════════════════════════════════════════════════════════
+# Shared environment anchors
+# ═══════════════════════════════════════════════════════════════
+x-shared-env: &shared-env
+  DATABASE_URL: postgresql+asyncpg://${DB_USER:-xtask}:${DB_PASSWORD:-xtask_dev_2024}@postgres:5432/${DB_NAME:-xtask_db}
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+  ENVIRONMENT: development
+
+x-service-base: &service-base
+  build:
+    context: .
+    dockerfile: Dockerfile.service
+  restart: unless-stopped
+  volumes:
+    - .:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
 services:
   # ─── PostgreSQL Database ───────────────────────────────────
   postgres:
@@ -33,7 +55,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── API Gateway ──────────────────────────────────────────
+  # ─── API Gateway (reverse proxy) ──────────────────────────
   gateway:
     build:
       context: .
@@ -43,18 +65,108 @@ services:
     ports:
       - "${GATEWAY_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-xtask}:${DB_PASSWORD:-xtask_dev_2024}@postgres:5432/${DB_NAME:-xtask_db}
-      - REDIS_URL=redis://redis:6379/0
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
-      - ENVIRONMENT=development
+      <<: *shared-env
+      GATEWAY_MODE: proxy
+      AUTH_SERVICE_URL: http://auth:8001
+      PROJECTS_SERVICE_URL: http://projects:8002
+      EMPLOYEES_SERVICE_URL: http://employees:8003
+      FINANCE_SERVICE_URL: http://finance:8004
+      PAYROLL_SERVICE_URL: http://payroll:8005
+      KPIS_SERVICE_URL: http://kpis:8006
+      SKILLS_SERVICE_URL: http://skills:8007
+      DASHBOARD_SERVICE_URL: http://dashboard:8008
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - auth
+      - projects
+      - employees
+      - finance
+      - payroll
+      - kpis
+      - skills
+      - dashboard
     volumes:
       - .:/app
     command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ─── Auth Service ──────────────────────────────────────────
+  auth:
+    <<: *service-base
+    container_name: xtask-auth
+    ports:
+      - "8001:8001"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.auth.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # ─── Projects Service ──────────────────────────────────────
+  projects:
+    <<: *service-base
+    container_name: xtask-projects
+    ports:
+      - "8002:8002"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.projects.main:app --host 0.0.0.0 --port 8002 --reload
+
+  # ─── Employees Service ─────────────────────────────────────
+  employees:
+    <<: *service-base
+    container_name: xtask-employees
+    ports:
+      - "8003:8003"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.employees.main:app --host 0.0.0.0 --port 8003 --reload
+
+  # ─── Finance Service ───────────────────────────────────────
+  finance:
+    <<: *service-base
+    container_name: xtask-finance
+    ports:
+      - "8004:8004"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.finance.main:app --host 0.0.0.0 --port 8004 --reload
+
+  # ─── Payroll Service ───────────────────────────────────────
+  payroll:
+    <<: *service-base
+    container_name: xtask-payroll
+    ports:
+      - "8005:8005"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.payroll.main:app --host 0.0.0.0 --port 8005 --reload
+
+  # ─── KPIs Service ──────────────────────────────────────────
+  kpis:
+    <<: *service-base
+    container_name: xtask-kpis
+    ports:
+      - "8006:8006"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.kpis.main:app --host 0.0.0.0 --port 8006 --reload
+
+  # ─── Skills Service ────────────────────────────────────────
+  skills:
+    <<: *service-base
+    container_name: xtask-skills
+    ports:
+      - "8007:8007"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.skills.main:app --host 0.0.0.0 --port 8007 --reload
+
+  # ─── Dashboard Service ─────────────────────────────────────
+  dashboard:
+    <<: *service-base
+    container_name: xtask-dashboard
+    ports:
+      - "8008:8008"
+    environment:
+      <<: *shared-env
+    command: uvicorn services.dashboard.main:app --host 0.0.0.0 --port 8008 --reload
 
 volumes:
   postgres_data:

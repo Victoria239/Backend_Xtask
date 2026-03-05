@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_db
+from shared.database import get_service_db
 from shared.dependencies import get_current_user_id, require_admin, require_manager
 from shared.schemas import PaginatedResponse
 from services.projects.repository import ProjectRepository
@@ -13,7 +13,7 @@ from services.projects.schemas import ProjectCreate, ProjectUpdate, ProjectOut, 
 router = APIRouter()
 
 
-def get_service(db: AsyncSession = Depends(get_db)) -> ProjectService:
+def get_service(db: AsyncSession = Depends(get_service_db("projects"))) -> ProjectService:
     return ProjectService(ProjectRepository(db))
 
 

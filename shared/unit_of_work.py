@@ -12,7 +12,7 @@ with auto-commit is still fine. Use UoW when a service method needs
 to coordinate writes across multiple repositories atomically.
 """
 
-from shared.database import async_session
+from shared.database import async_session, _get_session_factory
 
 
 class UnitOfWork:
@@ -20,14 +20,23 @@ class UnitOfWork:
 
     Repositories are created lazily on first access to avoid
     importing all repo classes when only one is needed.
+
+    Args:
+        service_name: Optional service name to use a per-schema session.
+                      If None, uses the default shared session (all schemas).
     """
 
-    def __init__(self):
+    def __init__(self, service_name: str | None = None):
         self._session = None
         self._repos: dict = {}
+        self._service_name = service_name
 
     async def __aenter__(self):
-        self._session = async_session()
+        if self._service_name:
+            factory = _get_session_factory(self._service_name)
+            self._session = factory()
+        else:
+            self._session = async_session()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

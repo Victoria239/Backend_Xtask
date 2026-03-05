@@ -10,10 +10,6 @@ class PayrollService:
     def __init__(self, repo: PayrollRepository):
         self.repo = repo
 
-    async def list_payrolls(self, filters: dict | None = None) -> list[PayrollOut]:
-        payrolls = await self.repo.get_all(filters)
-        return [PayrollOut.model_validate(p) for p in payrolls]
-
     async def list_payrolls_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:
@@ -54,13 +50,4 @@ class PayrollService:
             raise NotFoundException("Payroll", payroll_id)
 
     async def get_metrics(self, filters: dict | None = None) -> dict:
-        payrolls = await self.repo.get_all(filters)
-        total_monthly = sum(float(p.net_salary) for p in payrolls)
-        pending = sum(float(p.net_salary) for p in payrolls if p.status == "pending")
-        paid = sum(float(p.net_salary) for p in payrolls if p.status == "paid")
-        return {
-            "totalMensual": total_monthly,
-            "pendientePago": pending,
-            "pagadoMes": paid,
-            "totalNominas": len(payrolls),
-        }
+        return await self.repo.get_metrics(filters)
