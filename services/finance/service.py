@@ -1,7 +1,10 @@
 """Finance service - Business logic."""
 
+from shared.builders import ResponseBuilder
 from shared.exceptions import NotFoundException
 from shared.schemas import PaginatedResponse
+from shared.state_machine import BUDGET_STATES, INVOICE_STATES
+from shared.strategies import ExecutionStrategy, StandardExecutionStrategy
 from services.finance.repository import BudgetRepository, InvoiceRepository
 from services.finance.schemas import (
     BudgetCreate, BudgetUpdate, BudgetOut, ExpenseRegister,
@@ -10,16 +13,24 @@ from services.finance.schemas import (
 
 
 class BudgetService:
-    def __init__(self, repo: BudgetRepository):
+    def __init__(
+        self,
+        repo: BudgetRepository,
+        execution_strategy: ExecutionStrategy | None = None,
+    ):
         self.repo = repo
+        self._execution_strategy = execution_strategy or StandardExecutionStrategy()
 
     async def list_budgets_paginated(
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:
         items, total = await self.repo.get_paginated(page, page_size, filters)
-        return PaginatedResponse.create(
-            items=[BudgetOut.model_validate(b) for b in items],
-            total=total, page=page, page_size=page_size,
+        return (
+            ResponseBuilder()
+            .with_items(items, BudgetOut)
+            .with_pagination(total=total, page=page, page_size=page_size)
+            .with_filters(filters)
+            .build()
         )
 
     async def get_budget(self, budget_id: int) -> BudgetOut:
@@ -53,17 +64,11 @@ class BudgetService:
         budget = await self.repo.get_by_id(budget_id)
         if not budget:
             raise NotFoundException("Budget", budget_id)
-        total = float(budget.total_amount)
-        spent = float(budget.spent_amount)
-        remaining = total - spent
-        percentage = (spent / total * 100) if total > 0 else 0
-        return {
-            "budget_id": budget.id,
-            "total_amount": total,
-            "spent_amount": spent,
-            "remaining_amount": remaining,
-            "execution_percentage": round(percentage, 2),
-        }
+        result = self._execution_strategy.calculate(
+            float(budget.total_amount), float(budget.spent_amount),
+        )
+        result["budget_id"] = budget.id
+        return result
 
 
 class InvoiceService:
@@ -74,9 +79,12 @@ class InvoiceService:
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:
         items, total = await self.repo.get_paginated(page, page_size, filters)
-        return PaginatedResponse.create(
-            items=[InvoiceOut.model_validate(i) for i in items],
-            total=total, page=page, page_size=page_size,
+        return (
+            ResponseBuilder()
+            .with_items(items, InvoiceOut)
+            .with_pagination(total=total, page=page, page_size=page_size)
+            .with_filters(filters)
+            .build()
         )
 
     async def get_invoice(self, invoice_id: int) -> InvoiceOut:
@@ -95,11 +103,13 @@ class InvoiceService:
             raise NotFoundException("Invoice", invoice_id)
         return InvoiceOut.model_validate(invoice)
 
-    async def update_status(self, invoice_id: int, status: str) -> InvoiceOut:
-        invoice = await self.repo.update_status(invoice_id, status)
+    async def update_status(self, invoice_id: int, new_status: str) -> InvoiceOut:
+        invoice = await self.repo.get_by_id(invoice_id)
         if not invoice:
             raise NotFoundException("Invoice", invoice_id)
-        return InvoiceOut.model_validate(invoice)
+        INVOICE_STATES.validate_transition(invoice.status, new_status)
+        updated = await self.repo.update_status(invoice_id, new_status)
+        return InvoiceOut.model_validate(updated)
 
     async def delete_invoice(self, invoice_id: int) -> None:
         deleted = await self.repo.delete(invoice_id)

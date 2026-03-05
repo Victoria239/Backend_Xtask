@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_service_db
 from shared.dependencies import get_current_user_id, require_admin, require_manager
+from shared.repository_decorators import AuditedRepository
 from services.payroll.repository import PayrollRepository
 from services.payroll.service import PayrollService
 from services.payroll.schemas import (
@@ -14,8 +15,12 @@ from services.payroll.schemas import (
 router = APIRouter()
 
 
-def get_service(db: AsyncSession = Depends(get_service_db("payroll"))) -> PayrollService:
-    return PayrollService(PayrollRepository(db))
+def get_service(
+    db: AsyncSession = Depends(get_service_db("payroll")),
+    user_id: int = Depends(get_current_user_id),
+) -> PayrollService:
+    repo = AuditedRepository(PayrollRepository(db), actor_id=user_id)
+    return PayrollService(repo)
 
 
 @router.get("")
