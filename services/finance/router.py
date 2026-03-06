@@ -53,7 +53,7 @@ async def get_budget(
     return await service.get_budget(budget_id)
 
 
-@router.post("/presupuestos", response_model=BudgetOut, dependencies=[Depends(require_manager)])
+@router.post("/presupuestos", response_model=BudgetOut, dependencies=[Depends(require_admin)])
 async def create_budget(
     data: BudgetCreate,
     service: BudgetService = Depends(get_budget_service),
