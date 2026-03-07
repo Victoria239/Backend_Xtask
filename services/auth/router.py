@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_service_db
-from shared.dependencies import get_current_user_id
+from shared.dependencies import get_current_user_id, require_admin
 from services.auth.repository import UserRepository
 from services.auth.service import AuthService
 from services.auth.schemas import (
@@ -28,7 +28,7 @@ async def login(data: LoginRequest, service: AuthService = Depends(get_auth_serv
     return await service.login(data)
 
 
-@router.post("/register", response_model=LoginResponse)
+@router.post("/register", response_model=LoginResponse, dependencies=[Depends(require_admin)])
 async def register(data: RegisterRequest, service: AuthService = Depends(get_auth_service)):
     return await service.register(data)
 

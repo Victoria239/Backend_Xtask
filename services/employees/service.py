@@ -1,5 +1,6 @@
 """Employees service - Business logic."""
 
+from shared.builders import ResponseBuilder
 from shared.exceptions import NotFoundException
 from shared.schemas import PaginatedResponse
 from services.employees.repository import EmployeeRepository
@@ -14,9 +15,12 @@ class EmployeeService:
         self, filters: dict | None = None, page: int = 1, page_size: int = 20
     ) -> PaginatedResponse:
         items, total = await self.repo.get_paginated(page, page_size, filters)
-        return PaginatedResponse.create(
-            items=[EmployeeOut.model_validate(e) for e in items],
-            total=total, page=page, page_size=page_size,
+        return (
+            ResponseBuilder()
+            .with_items(items, EmployeeOut)
+            .with_pagination(total=total, page=page, page_size=page_size)
+            .with_filters(filters)
+            .build()
         )
 
     async def get_employee(self, employee_id: int) -> EmployeeOut:

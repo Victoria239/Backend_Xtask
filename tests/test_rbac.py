@@ -36,22 +36,72 @@ class TestRBACManagerAccess:
         assert r.status_code == 403
         assert "not authorized" in r.json()["error"].lower()
 
-    async def test_manager_can_create_project(self, client):
+    async def test_manager_cannot_create_project(self, client):
         r = await client.post(
             "/api/proyectos",
             json={"name": "Manager RBAC test", "status": "active"},
             headers=auth_header(MANAGER_TOKEN),
         )
-        assert r.status_code == 200
-        pid = r.json()["data"]["id"] if "data" in r.json() else r.json()["id"]
-        # Cleanup
-        await client.delete(f"/api/proyectos/{pid}", headers=auth_header(ADMIN_TOKEN))
+        assert r.status_code == 403
 
     async def test_user_cannot_create_payroll(self, client):
         r = await client.post(
             "/api/nominas",
             json={"employee_id": 1, "period": "2026-03", "base_salary": 1000, "bonuses": 0, "deductions": 0},
             headers=auth_header(USER_TOKEN),
+        )
+        assert r.status_code == 403
+
+    async def test_user_cannot_register(self, client):
+        r = await client.post(
+            "/api/auth/register",
+            json={
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "Test123!",
+                "fullName": "Test User",
+                "role": "user",
+            },
+        )
+        assert r.status_code == 403
+
+    async def test_manager_cannot_register(self, client):
+        r = await client.post(
+            "/api/auth/register",
+            json={
+                "username": "testmanager",
+                "email": "manager@example.com",
+                "password": "Manager123!",
+                "fullName": "Test Manager",
+                "role": "user",
+            },
+            headers=auth_header(MANAGER_TOKEN),
+        )
+        assert r.status_code == 403
+
+    async def test_user_cannot_create_budget(self, client):
+        r = await client.post(
+            "/api/finanzas/presupuestos",
+            json={
+                "name": "Test Budget",
+                "total_amount": 50000,
+                "project_id": 1,
+                "status": "active",
+            },
+            headers=auth_header(USER_TOKEN),
+        )
+        assert r.status_code == 403
+
+    async def test_manager_cannot_create_budget(self, client):
+        r = await client.post(
+            "/api/finanzas/presupuestos",
+            json={
+                "name": "Test Budget",
+                "total_amount": 50000,
+                "project_id": 1,
+                "status": "active",
+            },
+            headers=auth_header(MANAGER_TOKEN),
         )
         assert r.status_code == 403
 
