@@ -54,3 +54,8 @@ Thumbs.db
 
 # Alembic
 alembic/versions/*.pyc
+
+# Backups y coverage locales
+*.backup
+.coverage
+htmlcov/

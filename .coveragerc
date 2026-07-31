@@ -1,0 +1,82 @@
+# Coverage config para módulos Q4 críticos (lógica, no HTTP layer).
+#
+# Run:
+#   pytest tests/q5 --cov --cov-report=term-missing --cov-report=html
+#
+# El gate (fail_under) protege contra regresiones; si bajamos cobertura,
+# el CI rojea.
+
+[run]
+branch = True
+source =
+    services
+omit =
+    */tests/*
+    services/auth/*
+    services/projects/*
+    services/employees/*
+    services/payroll/*
+    services/finance/*
+    services/kpis/*
+    services/skills/*
+    services/notifications/*
+    services/onboarding/*
+    services/docgen/*
+    services/okrs/*
+    services/contracts/*
+    services/plans/*
+    services/leaves/*
+    services/ats/*
+    services/payouts/*
+    services/approvals/*
+    services/tenants/*
+    services/rag/*
+    services/ai_assistant/llm.py
+    services/ai_assistant/service.py
+    services/ai_assistant/router.py
+    services/ai_assistant/main.py
+    services/ai_assistant/models.py
+    services/ai_assistant/schemas.py
+    services/ai_assistant/__init__.py
+    services/predictions/router.py
+    services/predictions/main.py
+    services/predictions/forecasting.py
+    services/predictions/__init__.py
+    services/predictions/schemas.py
+    services/reviews/router.py
+    services/reviews/main.py
+    services/reviews/models.py
+    services/reviews/schemas.py
+    services/reviews/__init__.py
+    services/dashboard/router.py
+    services/dashboard/main.py
+    services/dashboard/models.py
+    services/dashboard/schemas.py
+    services/dashboard/repository.py
+    services/dashboard/service.py
+    services/dashboard/__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    \.\.\.
+    except ImportError
+    except Exception
+    \blogger\.
+
+# Gate: 80% sobre los módulos de lógica auditados.
+fail_under = 80
+
+precision = 1
+show_missing = True
+skip_empty = True
+sort = Cover
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml

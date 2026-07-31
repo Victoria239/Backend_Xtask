@@ -35,14 +35,31 @@ class ProxyClient:
     def build_routes(self):
         settings = get_settings()
         self.routes = {
-            "/api/auth": settings.AUTH_SERVICE_URL,
+            "/api/auth":      settings.AUTH_SERVICE_URL,
             "/api/proyectos": settings.PROJECTS_SERVICE_URL,
             "/api/empleados": settings.EMPLOYEES_SERVICE_URL,
-            "/api/finanzas": settings.FINANCE_SERVICE_URL,
-            "/api/nominas": settings.PAYROLL_SERVICE_URL,
-            "/api/kpis": settings.KPIS_SERVICE_URL,
+            "/api/nominas":   settings.PAYROLL_SERVICE_URL,
+            "/api/finanzas":  settings.FINANCE_SERVICE_URL,
+            "/api/kpis":      settings.KPIS_SERVICE_URL,
             "/api/habilidades": settings.SKILLS_SERVICE_URL,
+            "/api/rag":       settings.RAG_SERVICE_URL,
+            "/api/ai":        settings.AI_ASSISTANT_SERVICE_URL,
+            # Q5 Fase 4.C3 — services split out de rag a containers independientes
+            "/api/tenants":   settings.TENANTS_SERVICE_URL,
             "/api/dashboard": settings.DASHBOARD_SERVICE_URL,
+            "/api/reviews":   settings.REVIEWS_SERVICE_URL,
+            "/api/notifications": settings.NOTIFICATIONS_SERVICE_URL,
+            "/api/onboarding":    settings.ONBOARDING_SERVICE_URL,
+            "/api/docgen":        settings.DOCGEN_SERVICE_URL,
+            "/api/okrs":          settings.OKRS_SERVICE_URL,
+            "/api/contracts":     settings.CONTRACTS_SERVICE_URL,
+            "/api/plans":         settings.PLANS_SERVICE_URL,
+            "/api/leaves":        settings.LEAVES_SERVICE_URL,
+            "/api/ats":           settings.ATS_SERVICE_URL,
+            "/api/payouts":       settings.PAYOUTS_SERVICE_URL,
+            "/api/approvals":     settings.APPROVALS_SERVICE_URL,
+            "/api/predictions":   settings.PREDICTIONS_SERVICE_URL,
+            "/api/actividades":   settings.TASKS_SERVICE_URL,
         }
 
     @property
@@ -53,6 +70,15 @@ class ProxyClient:
 
     async def forward(self, request: Request, target_url: str) -> Response:
         """Forward an incoming request to the target microservice."""
+        # Bloquear endpoints internos para evitar cross-tenant leak vía gateway público.
+        # Las rutas /api/*/internal/* deben ser invocables solo desde la red Docker interna,
+        # no desde el navegador del usuario.
+        if "/internal/" in request.url.path:
+            return Response(
+                content='{"success":false,"error":"Not found"}',
+                status_code=404,
+                media_type="application/json",
+            )
         url = f"{target_url}{request.url.path}"
         if request.url.query:
             url = f"{url}?{request.url.query}"
@@ -122,15 +148,27 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
 
+    docs_url = "/api/docs" if settings.is_development else None
+    openapi_url = "/api/openapi.json" if settings.is_development else None
+
     app = FastAPI(
         title="XTask API Gateway",
         description="Reverse proxy gateway for XTask microservices",
         version=APP_VERSION,
         lifespan=lifespan,
-        docs_url="/api/docs" if settings.is_development else None,
+        docs_url=None,  # reemplazado por install_xtask_swagger
         redoc_url="/api/redoc" if settings.is_development else None,
-        openapi_url="/api/openapi.json" if settings.is_development else None,
+        openapi_url=openapi_url,
     )
+
+    if settings.is_development and docs_url and openapi_url:
+        from shared.swagger_theme import install_xtask_swagger
+        app.docs_url = docs_url
+        install_xtask_swagger(app, openapi_url=openapi_url, title="XTask API Gateway")
+
+    # ─── Prometheus metrics (Sprint 7) ─────────────────────
+    from shared.metrics import setup_metrics
+    setup_metrics(app, service_name="gateway", metrics_path="/metrics")
 
     # ─── Middleware (order matters: last added = first executed) ─
     app.add_middleware(
@@ -180,23 +218,12 @@ def create_app() -> FastAPI:
 
 def _register_monolith_routers(app: FastAPI):
     """Import and register routers directly (monolith mode)."""
-    from services.auth.router import router as auth_router
-    from services.projects.router import router as projects_router
-    from services.employees.router import router as employees_router
-    from services.finance.router import router as finance_router
-    from services.payroll.router import router as payroll_router
-    from services.kpis.router import router as kpis_router
-    from services.skills.router import router as skills_router
-    from services.dashboard.router import router as dashboard_router
-
-    app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
-    app.include_router(projects_router, prefix="/api/proyectos", tags=["Projects"])
-    app.include_router(employees_router, prefix="/api/empleados", tags=["Employees"])
-    app.include_router(finance_router, prefix="/api/finanzas", tags=["Finance"])
-    app.include_router(payroll_router, prefix="/api/nominas", tags=["Payroll"])
-    app.include_router(kpis_router, prefix="/api/kpis", tags=["KPIs"])
-    app.include_router(skills_router, prefix="/api/habilidades", tags=["Skills"])
-    app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+    # Simplified for now - only auth service
+    try:
+        from services.auth.router import router as auth_router
+        app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
+    except ImportError:
+        pass
 
 
 def _register_proxy_routes(app: FastAPI, routes: dict[str, str]):

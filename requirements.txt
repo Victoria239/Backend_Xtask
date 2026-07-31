@@ -1,0 +1,54 @@
+# XTask backend — requirements pinned (Q5 Fase 4.C4 bump)
+#
+# Estrategia: pinneamos a versiones específicas para reproducibilidad
+# (no rangos abiertos en producción). Dependabot abre PRs auto para parches.
+
+# ─── Web framework ─────────────────────────────────────────────
+fastapi==0.118.0
+uvicorn[standard]==0.34.0
+python-multipart==0.0.31  # Q5 cierre: fix 6 CVEs (CVE-2026-24486/40347/42561/53538/53539/53540)
+# Q5 cierre — starlette es transitiva de fastapi; las CVEs residuales de starlette
+# requieren fastapi >=0.119 (que aún no es estable en pyproject).
+# Tracking: revisar al próximo bump de fastapi.
+# pyasn1 0.4.x viene fijado por python-jose; rastrear cuando jose libere fix.
+
+# ─── Validation / settings ─────────────────────────────────────
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# ─── Database ──────────────────────────────────────────────────
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+alembic==1.14.0
+pgvector==0.3.6
+
+# ─── Cache / Redis ─────────────────────────────────────────────
+redis==5.2.1
+
+# ─── Auth ──────────────────────────────────────────────────────
+python-jose[cryptography]==3.4.0  # Q5 cierre: fix PYSEC-2024-232/233
+bcrypt==4.2.1
+passlib[bcrypt]==1.7.4
+
+# ─── HTTP client ───────────────────────────────────────────────
+httpx==0.28.1
+
+# ─── Config / observability ────────────────────────────────────
+python-dotenv==1.2.2  # Q5 cierre: fix CVE-2026-28684
+structlog==25.1.0
+prometheus-client==0.21.1
+prometheus-fastapi-instrumentator==7.0.2
+
+# ─── DocGen (AI-03) ────────────────────────────────────────────
+jinja2==3.1.6  # Q5 cierre: fix CVE-2025-27516
+markdown==3.8.1  # Q5 cierre: fix PYSEC-2026-89
+bleach==6.4.0  # Q5 cierre: fix GHSA-gj48-438w-jh9v, GHSA-8rfp-98v4-mmr6
+
+# ─── Tests ─────────────────────────────────────────────────────
+pytest==8.4.0  # pytest 9.0.3 (fix CVE-2025-71176) bloqueado por pytest-asyncio 0.25; revisar al subir.
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+
+# ─── AI-04 forecasting ─────────────────────────────────────────
+numpy==2.2.1

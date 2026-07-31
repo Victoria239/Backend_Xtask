@@ -12,11 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from shared.config import APP_VERSION, get_settings
 from shared.database import init_db
 from shared.logging import setup_logging, get_logger
+from shared.metrics import setup_metrics
 from shared.middleware import (
     RequestIdMiddleware,
     RequestLoggingMiddleware,
     register_exception_handlers,
 )
+from shared.swagger_theme import install_xtask_swagger
 
 logger = get_logger(__name__)
 
@@ -41,13 +43,16 @@ def create_service_app(
         yield
         logger.info(f"shutting_down_{service_name}")
 
+    docs_url = f"{prefix}/docs" if settings.is_development else None
+    openapi_url = f"{prefix}/openapi.json" if settings.is_development else None
+
     app = FastAPI(
         title=title,
         version=version,
         lifespan=lifespan,
-        docs_url=f"{prefix}/docs" if settings.is_development else None,
+        docs_url=None,  # reemplazado por install_xtask_swagger
         redoc_url=f"{prefix}/redoc" if settings.is_development else None,
-        openapi_url=f"{prefix}/openapi.json" if settings.is_development else None,
+        openapi_url=openapi_url,
     )
 
     # ─── Middleware ─────────────────────────────────────────
@@ -69,5 +74,14 @@ def create_service_app(
     @app.get(f"{prefix}/health", tags=["Health"])
     async def health_check():
         return {"status": "ok", "service": service_name, "version": version}
+
+    # ─── Prometheus metrics (Sprint 7) ─────────────────────
+    # Expone /metrics en raíz para que Prometheus scrape el mismo path en todos los services.
+    setup_metrics(app, service_name=service_name, metrics_path="/metrics")
+
+    # ─── Swagger UI custom (alineado con DESIGN.md) ────────
+    if settings.is_development and docs_url and openapi_url:
+        app.docs_url = docs_url
+        install_xtask_swagger(app, openapi_url=openapi_url, title=title)
 
     return app

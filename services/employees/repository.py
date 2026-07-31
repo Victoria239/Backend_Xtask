@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy import select, delete
 
-from services.employees.models import Employee, EmployeeProject
+from services.employees.models import Employee, EmployeeDocument, EmployeeProject
 from shared.repository import BaseRepository
 
 
@@ -53,5 +53,29 @@ class EmployeeRepository(BaseRepository[Employee]):
     async def get_project_ids(self, employee_id: int) -> list[int]:
         result = await self.db.execute(
             select(EmployeeProject.project_id).where(EmployeeProject.employee_id == employee_id)
+        )
+        return list(result.scalars().all())
+
+    # ─── H-01: org chart ────────────────────────────────────
+    async def list_for_org_chart(self, tenant_id: int | None = None) -> list[Employee]:
+        stmt = select(Employee)
+        if tenant_id is not None:
+            stmt = stmt.where(Employee.tenant_id == tenant_id)
+        stmt = stmt.where(Employee.contract_status == "active")
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    # ─── H-01: employee documents ──────────────────────────
+    async def add_document(self, employee_id: int, tenant_id: int | None, **fields) -> EmployeeDocument:
+        doc = EmployeeDocument(employee_id=employee_id, tenant_id=tenant_id, **fields)
+        self.db.add(doc)
+        await self.db.flush()
+        return doc
+
+    async def list_documents(self, employee_id: int) -> list[EmployeeDocument]:
+        result = await self.db.execute(
+            select(EmployeeDocument)
+            .where(EmployeeDocument.employee_id == employee_id)
+            .order_by(EmployeeDocument.created_at.desc())
         )
         return list(result.scalars().all())

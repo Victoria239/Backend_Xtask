@@ -11,12 +11,15 @@ from shared.config import get_settings
 # Import all models so Alembic can detect them
 from services.auth.models import User  # noqa: F401
 from services.projects.models import Project  # noqa: F401
-from services.employees.models import Employee, EmployeeProject  # noqa: F401
+from services.employees.models import Employee, EmployeeDocument, EmployeeProject  # noqa: F401
 from services.finance.models import Budget, Invoice  # noqa: F401
 from services.payroll.models import Payroll  # noqa: F401
-from services.kpis.models import Kpi  # noqa: F401
+from services.kpis.models import Kpi, KpiMeasurement  # noqa: F401
 from services.skills.models import Skill  # noqa: F401
 from services.dashboard.models import DashboardLayout, DashboardWidget  # noqa: F401
+from services.tenants.models import Tenant, TenantMembership  # noqa: F401
+from services.rag.models import Chunk, Document, IngestionJob  # noqa: F401
+from services.ai_assistant.models import Conversation, Message  # noqa: F401
 
 config = context.config
 

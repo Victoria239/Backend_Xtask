@@ -4,11 +4,23 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_service_db
-from shared.dependencies import get_current_user_id, require_admin, require_manager
+from shared.dependencies import (
+    get_current_user_id,
+    get_optional_tenant_id,
+    require_admin,
+    require_manager,
+)
 from services.kpis.repository import KpiRepository
 from services.kpis.service import KpiService
 from services.kpis.schemas import (
-    KpiCreate, KpiUpdate, KpiOut, KpiResultUpdate, KpiValidate,
+    KpiCreate,
+    KpiMeasurementBatch,
+    KpiMeasurementIngestResponse,
+    KpiMeasurementOut,
+    KpiOut,
+    KpiResultUpdate,
+    KpiUpdate,
+    KpiValidate,
 )
 
 router = APIRouter()
@@ -93,3 +105,27 @@ async def delete_kpi(
     user_id: int = Depends(get_current_user_id),
 ):
     await service.delete_kpi(kpi_id)
+
+
+# ─── C-01: measurement ingestion API ────────────────────────────
+@router.post(
+    "/measurements",
+    response_model=KpiMeasurementIngestResponse,
+    dependencies=[Depends(require_manager)],
+)
+async def ingest_measurements(
+    payload: KpiMeasurementBatch,
+    service: KpiService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+    tenant_id: int | None = Depends(get_optional_tenant_id),
+):
+    return await service.ingest_measurements(tenant_id, payload.measurements)
+
+
+@router.get("/{kpi_id}/measurements", response_model=list[KpiMeasurementOut])
+async def list_kpi_measurements(
+    kpi_id: int,
+    service: KpiService = Depends(get_service),
+    user_id: int = Depends(get_current_user_id),
+):
+    return await service.list_measurements(kpi_id)

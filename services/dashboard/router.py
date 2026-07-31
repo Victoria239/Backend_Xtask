@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_service_db
-from shared.dependencies import get_current_user_id, require_admin
+from shared.dependencies import get_current_tenant_id, get_current_user_id, require_admin
+from services.dashboard.bi import build_bi_overview
+from services.dashboard.portal import build_my_portal
 from services.dashboard.repository import LayoutRepository, WidgetRepository
 from services.dashboard.service import DashboardService
 from services.dashboard.schemas import (
@@ -134,3 +136,24 @@ async def update_positions(
     user_id: int = Depends(get_current_user_id),
 ):
     return await service.update_positions(layout_id, data)
+
+
+# ─── BI executive overview (E-05 + E-06) ────────────────────────
+@router.get("/bi/overview")
+async def bi_overview(
+    db: AsyncSession = Depends(get_service_db("dashboard")),
+    tenant_id: int = Depends(get_current_tenant_id),
+):
+    """Snapshot ejecutivo: ARR, headcount, payroll, P&L, riesgo, OKRs, clientes."""
+    return await build_bi_overview(db, tenant_id)
+
+
+# ─── Portal self-service del empleado (H-06) ────────────────────
+@router.get("/me/portal")
+async def my_portal(
+    db: AsyncSession = Depends(get_service_db("dashboard")),
+    tenant_id: int = Depends(get_current_tenant_id),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Toda la información del empleado actual: perfil, contratos, ausencias, reviews, OKRs, beneficios."""
+    return await build_my_portal(db, tenant_id, user_id)

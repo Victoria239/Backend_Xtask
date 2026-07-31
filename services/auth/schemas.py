@@ -47,9 +47,14 @@ class UserOut(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    token: str
+    token: str                          # access_token de Keycloak (o JWT legacy)
+    refresh_token: str = ""             # Keycloak refresh token
     user: UserOut
 
 
 class ValidateTokenResponse(BaseModel):
     valid: bool
+    sub: str = ""
+    email: str = ""
+    tenant_slug: str = ""
+    roles: list[str] = []

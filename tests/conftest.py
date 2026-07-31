@@ -44,6 +44,13 @@ def user_headers():
 
 @pytest.fixture
 async def client():
-    """Async test client that hits the running ASGI app via the live server."""
-    async with AsyncClient(base_url="http://localhost:8000") as c:
+    """Async test client que apunta al gateway running.
+
+    Si los tests corren dentro del docker network (via scripts/run_tests.sh),
+    gateway se resuelve por hostname. Desde el host shell directo, el usuario
+    puede sobreescribir con GATEWAY_URL=http://localhost:8001.
+    """
+    import os
+    base_url = os.getenv("GATEWAY_URL", "http://gateway:8000")
+    async with AsyncClient(base_url=base_url) as c:
         yield c

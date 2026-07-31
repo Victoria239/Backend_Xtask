@@ -30,7 +30,8 @@ class AuthService:
         if not user or not verify_password(data.password, user.password):
             raise UnauthorizedException("Invalid credentials")
 
-        token = self._create_token(user)
+        tenant_id = await self._resolve_default_tenant_id(user.id)
+        token = self._create_token(user, tenant_id=tenant_id)
         return LoginResponse(token=token, user=UserOut.from_orm_user(user))
 
     async def register(self, data: RegisterRequest) -> LoginResponse:
@@ -51,8 +52,35 @@ class AuthService:
             "role": data.role or "user",
         })
 
-        token = self._create_token(user)
+        tenant_id = await self._resolve_default_tenant_id(user.id)
+        token = self._create_token(user, tenant_id=tenant_id)
         return LoginResponse(token=token, user=UserOut.from_orm_user(user))
+
+    async def _resolve_default_tenant_id(self, user_id: int) -> int | None:
+        """Look up the user's default tenant from svc_tenants.tenant_memberships.
+
+        Failure-tolerant: if the table doesn't exist yet (fresh install) or
+        the user has no memberships, return ``None`` and let the caller decide.
+        """
+        from sqlalchemy import text
+
+        try:
+            res = await self.repo.db.execute(
+                text(
+                    """
+                    SELECT tenant_id
+                    FROM svc_tenants.tenant_memberships
+                    WHERE user_id = :uid
+                    ORDER BY is_default DESC, id ASC
+                    LIMIT 1
+                    """
+                ),
+                {"uid": user_id},
+            )
+            row = res.first()
+            return int(row[0]) if row else None
+        except Exception:  # noqa: BLE001
+            return None
 
     async def get_current_user(self, user_id: int) -> UserOut:
         user = await self.repo.get_by_id(user_id)
@@ -67,7 +95,7 @@ class AuthService:
         except JWTError:
             return False
 
-    def _create_token(self, user: User) -> str:
+    def _create_token(self, user: User, tenant_id: int | None = None) -> str:
         expire = datetime.now(timezone.utc) + timedelta(minutes=self.settings.JWT_EXPIRATION_MINUTES)
         payload = {
             "sub": str(user.id),
@@ -75,4 +103,6 @@ class AuthService:
             "role": user.role,
             "exp": expire,
         }
+        if tenant_id is not None:
+            payload["tenant_id"] = tenant_id
         return jwt.encode(payload, self.settings.JWT_SECRET, algorithm=self.settings.JWT_ALGORITHM)
